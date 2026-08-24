@@ -1,332 +1,1072 @@
-# Product Requirements Document
+# Product Requirements Document (PRD)
 
-## Server Room Monitoring Dashboard
+## Server Room Monitoring System
 
-**Versi:** 1.0  
-**Status:** Draft MVP  
-**Platform:** Web responsif  
-**Bahasa antarmuka:** Indonesia
+| Atribut | Nilai |
+|---|---|
+| Nama produk | Server Room Monitoring System |
+| Versi dokumen | 2.1 |
+| Status | Aktif dikembangkan |
+| Platform | Web responsif / desktop browser |
+| Bahasa antarmuka | Indonesia |
+| Zona waktu utama | WIB (`Asia/Jakarta`) |
+| Repository | `elsaaa25/server-room-monitoring` |
+| Lingkungan produksi | Vercel |
+| Database | PostgreSQL Supabase |
+| Terakhir diperbarui | 24 Agustus 2026 |
+
+---
 
 ## 1. Ringkasan Produk
 
-Server Room Monitoring Dashboard adalah aplikasi web untuk memantau suhu ruang server secara hampir real-time. ESP32 membaca sensor suhu, mengirim data melalui MQTT, lalu layanan subscriber menyimpan data ke PostgreSQL. Dashboard Next.js mengambil data terbaru dari API setiap 4 detik.
+Server Room Monitoring System adalah aplikasi web untuk memantau kondisi ruang server secara hampir real-time. Sistem menerima pembacaan sensor dari ESP32 melalui API HTTPS, menyimpan data ke PostgreSQL Supabase, menampilkan kondisi terkini pada dashboard, menyediakan grafik dan riwayat, serta membuat peringatan ketika suhu melewati batas yang telah ditentukan.
 
-Produk membantu operator mengetahui kondisi ruangan, melihat tren suhu, mendeteksi sensor yang tidak aktif, serta menerima peringatan ketika suhu melewati batas aman.
+Versi saat ini berfokus pada sensor suhu Lantai 4 dengan identitas `TEMP-L4`. Sistem dirancang agar dapat diperluas untuk suhu Lantai 5, tegangan, arus, dan jenis sensor lain tanpa mengubah fondasi utama aplikasi.
 
-## 2. Tujuan
+Produk ini tidak mengendalikan AC atau aktuator. Fungsi utamanya adalah monitoring, pencatatan, visualisasi, peringatan, dan pengarsipan data.
 
-- Menampilkan suhu ruang server secara jelas dan cepat.
-- Memperbarui data dashboard otomatis setiap 3–5 detik tanpa reload halaman.
-- Menyediakan histori dan grafik suhu untuk analisis.
-- Memberikan peringatan saat suhu masuk status waspada atau bahaya.
-- Menampilkan status koneksi sensor dan komponen sistem.
-- Menyimpan data pengukuran secara konsisten di PostgreSQL.
+---
 
-## 3. Ruang Lingkup MVP
+## 2. Latar Belakang Masalah
 
-### Termasuk
+Ruang server membutuhkan kondisi suhu yang stabil. Pemantauan manual memiliki beberapa keterbatasan:
 
-- Satu ruang server.
-- Dukungan satu atau lebih ESP32 dengan `sensor_id` unik.
-- Monitoring suhu dalam °C.
-- Status suhu normal, waspada, dan bahaya.
-- Grafik periode 1 jam, 6 jam, dan 24 jam.
-- Lima data pengukuran terakhir.
-- Ringkasan suhu tertinggi, terendah, dan rata-rata hari ini.
-- Daftar peringatan terbaru.
-- Status sensor online atau offline.
-- Tampilan desktop, tablet, dan mobile.
-- Data demo ketika database belum dikonfigurasi pada lingkungan development.
+- kondisi ruangan tidak selalu diperiksa setiap saat;
+- kenaikan suhu dapat terlambat diketahui;
+- tidak tersedia riwayat yang rapi untuk analisis;
+- status sensor sulit diketahui ketika perangkat terputus;
+- data yang sama dapat tersimpan berulang kali dan memperbesar beban database;
+- laporan bulanan membutuhkan proses manual.
 
-### Belum termasuk
+Sistem ini dibuat untuk menyediakan satu pusat monitoring yang mudah diakses melalui komputer, menampilkan informasi penting secara cepat, dan menyimpan rekam data yang dapat ditinjau kembali.
 
-- Kontrol AC atau kipas secara otomatis.
-- Notifikasi WhatsApp, Telegram, SMS, atau email.
-- Multi-tenant dan banyak lokasi.
-- Manajemen pengguna tingkat lanjut.
-- Monitoring kelembapan, asap, pintu, atau listrik.
-- Aplikasi mobile native.
+---
 
-## 4. Pengguna Utama
+## 3. Tujuan Produk
 
-### Operator IT
+### 3.1 Tujuan Utama
 
-Memantau kondisi ruang server dan menindaklanjuti peringatan.
+1. Menampilkan kondisi suhu ruang server secara jelas dan hampir real-time.
+2. Memberikan peringatan saat suhu memasuki kondisi waspada atau bahaya.
+3. Menyediakan grafik perubahan suhu yang mudah dibaca.
+4. Menyediakan riwayat pembacaan sensor dalam zona waktu WIB.
+5. Menampilkan status sensor online atau offline.
+6. Menyediakan pengaturan batas suhu yang hanya dapat diubah administrator.
+7. Mengarsipkan data bulanan ke Google Drive dalam format Excel.
+8. Mengurangi data berulang dengan mencatat perubahan nilai, bukan menyimpan nilai identik secara terus-menerus.
 
-### Administrator
+### 3.2 Sasaran Keberhasilan
 
-Mengatur sensor, ambang suhu, koneksi MQTT, dan akun pengguna pada pengembangan berikutnya.
+- Data terbaru dapat tampil tanpa reload halaman.
+- Grafik dapat terbuka dengan cepat dan tetap responsif pada riwayat besar.
+- Peringatan tidak dibuat berulang untuk satu siklus kondisi yang sama.
+- Data yang sudah berhasil diarsipkan dapat dihapus secara aman tanpa menghapus data yang belum verifikasi.
+- Operator dapat memahami kondisi ruang server dalam waktu kurang dari satu menit setelah membuka dashboard.
 
-## 5. Alur Sistem
+---
 
-1. ESP32 membaca suhu dari sensor.
-2. ESP32 mengirim payload JSON ke MQTT broker.
-3. MQTT subscriber memvalidasi payload.
-4. Data valid disimpan ke PostgreSQL.
-5. Sistem membuat catatan peringatan bila suhu melewati batas.
-6. Next.js API membaca data terbaru dan histori.
-7. Browser mengambil data API setiap 4 detik.
-8. Dashboard memperbarui kartu, grafik, tabel, dan peringatan tanpa reload.
+## 4. Ruang Lingkup
 
-## 6. Kebutuhan Fungsional
+### 4.1 Termasuk dalam Produk
 
-### FR-01 — Ringkasan suhu terkini
+- autentikasi pengguna;
+- role `ADMIN` dan `OPERATOR`;
+- monitoring suhu Lantai 4;
+- dukungan desain untuk suhu Lantai 5;
+- pembacaan tegangan sebagai data opsional;
+- pengembangan berikutnya untuk arus listrik;
+- dashboard ringkasan;
+- grafik periode 1 jam, 6 jam, 24 jam, dan 7 hari;
+- halaman riwayat;
+- halaman peringatan;
+- halaman pengaturan;
+- status sensor online/offline;
+- ekspor CSV dari halaman grafik;
+- arsip Excel bulanan ke Google Drive;
+- ringkasan harian dalam file Excel;
+- penyimpanan data PostgreSQL Supabase;
+- deployment aplikasi melalui Vercel;
+- tampilan responsif untuk desktop, tablet, dan mobile.
 
-Dashboard harus menampilkan:
+### 4.2 Dalam Pengembangan
 
-- Suhu terbaru dalam °C dengan satu angka desimal.
-- Status ruangan.
-- Status sensor.
-- Waktu pembaruan terakhir dalam WIB.
+- pencatatan data berbasis perubahan suhu;
+- heartbeat perangkat yang terpisah dari data historis;
+- optimasi grafik dashboard agar tidak memuat ulang seluruh riwayat saat polling;
+- ekspor bulanan menggunakan data asli database;
+- finalisasi proses penghapusan aman setelah arsip diverifikasi;
+- sensor suhu Lantai 5;
+- sensor tegangan aktual;
+- sensor arus aktual.
 
-### FR-02 — Klasifikasi suhu
+### 4.3 Tidak Termasuk Saat Ini
 
-Aturan bawaan MVP:
+- kontrol otomatis AC, kipas, atau aktuator;
+- aplikasi Android/iOS native;
+- prediksi suhu dengan machine learning;
+- multi-tenant;
+- banyak instansi dalam satu instalasi;
+- notifikasi WhatsApp, Telegram, atau SMS;
+- monitoring kamera/CCTV;
+- kontrol kelistrikan jarak jauh.
 
-| Status | Kondisi |
-|---|---|
-| Normal | Suhu ≤ 27°C |
-| Waspada | Suhu > 27°C dan < 30°C |
-| Bahaya | Suhu ≥ 30°C |
+---
 
-### FR-03 — Grafik suhu
+## 5. Pengguna dan Hak Akses
 
-- Menampilkan suhu berdasarkan waktu.
-- Pilihan periode: 1 jam, 6 jam, dan 24 jam.
-- Menampilkan garis batas 27°C dan 30°C.
-- Menampilkan waktu dan suhu saat titik grafik disorot.
-- Grafik tetap terbaca pada perangkat mobile.
+### 5.1 Operator
 
-### FR-04 — Data terakhir
+Operator bertugas memantau kondisi dan menindaklanjuti peringatan.
 
-- Menampilkan minimal lima pengukuran terakhir.
-- Kolom: waktu, suhu, status, dan keterangan.
-- Data terbaru berada di baris pertama.
+Hak akses:
 
-### FR-05 — Ringkasan harian
+- login ke aplikasi;
+- melihat dashboard;
+- melihat grafik;
+- melihat riwayat;
+- melihat peringatan;
+- melihat status sensor;
+- mengekspor data yang disediakan UI;
+- menandai atau menangani peringatan sesuai fitur yang tersedia.
 
-Menampilkan suhu tertinggi, terendah, dan rata-rata sejak pukul 00.00 WIB.
+Operator tidak dapat mengubah pengaturan sistem global.
 
-### FR-06 — Peringatan
+### 5.2 Administrator
 
-- Membuat peringatan ketika suhu memasuki status waspada atau bahaya.
-- Menampilkan level, judul, nilai suhu, serta waktu kejadian.
-- Menghindari pembuatan peringatan identik pada setiap payload. Peringatan baru dibuat saat status berubah atau setelah interval pengingat yang ditentukan.
-- Mencatat kejadian ketika suhu kembali normal.
+Administrator memiliki semua akses operator dan tambahan:
 
-### FR-07 — Status sensor
+- membuka halaman pengaturan;
+- mengubah batas suhu waspada dan bahaya;
+- mengubah interval pembaruan dashboard;
+- mengubah batas waktu sensor offline;
+- mengelola nama dan identitas sensor yang disediakan sistem;
+- mengaktifkan atau menonaktifkan opsi notifikasi browser dan suara;
+- membuat akun pengguna melalui mekanisme administrasi proyek.
 
-- Sensor dinyatakan online bila data terakhir diterima dalam 30 detik.
-- Sensor dinyatakan offline bila tidak ada data baru selama lebih dari 30 detik.
-- Batas waktu harus dapat dikonfigurasi melalui environment variable.
+---
 
-### FR-08 — Pembaruan otomatis
+## 6. Alur Sistem Utama
 
-- Browser memanggil endpoint dashboard setiap 4 detik.
-- Polling tidak boleh membuat halaman reload.
-- Jika permintaan gagal, data terakhir tetap ditampilkan.
-- Dashboard menampilkan indikator gangguan koneksi dan mencoba kembali otomatis.
+```mermaid
+flowchart LR
+    A[ESP32 + Sensor] -->|HTTPS POST + Bearer API Key| B[Next.js API /api/sensor]
+    B --> C[Validasi Zod]
+    C --> D[(PostgreSQL Supabase)]
+    D --> E[Next.js API History/Alerts/Settings]
+    E --> F[Dashboard Web]
+    D --> G[Proses Arsip Bulanan]
+    G --> H[Excel di Google Drive]
+```
 
-### FR-09 — Validasi payload MQTT
+### 6.1 Alur Pembacaan Sensor
+
+1. ESP32 membaca nilai sensor.
+2. Nilai dibulatkan sesuai ketelitian yang dipakai sistem.
+3. ESP32 membandingkan nilai saat ini dengan nilai terakhir yang berhasil dikirim.
+4. Data monitoring dikirim ketika terjadi perubahan yang memenuhi ambang perubahan.
+5. API memvalidasi identitas perangkat, format payload, dan rentang nilai.
+6. Data valid disimpan ke `sensor_readings`.
+7. Sistem mengevaluasi batas suhu.
+8. Sistem membuka, menaikkan level, atau menutup siklus peringatan.
+9. Dashboard mengambil data terbaru dan memperbarui tampilan.
+
+### 6.2 Alur Heartbeat yang Direncanakan
+
+Heartbeat digunakan agar perangkat tetap dapat dinilai online ketika suhu tidak berubah dalam waktu lama.
+
+```mermaid
+flowchart TD
+    A[ESP32 aktif] --> B{Suhu berubah?}
+    B -->|Ya| C[Kirim data monitoring]
+    B -->|Tidak| D[Tidak membuat baris riwayat]
+    A --> E{Waktu heartbeat tercapai?}
+    E -->|Ya| F[Perbarui last_seen perangkat]
+    E -->|Tidak| A
+```
+
+Heartbeat tidak boleh menambahkan titik baru ke grafik suhu.
+
+---
+
+## 7. Kebutuhan Fungsional
+
+### FR-001 — Autentikasi
+
+- Pengguna login menggunakan email dan password.
+- Password disimpan dalam bentuk hash.
+- Sesi menggunakan JWT.
+- Durasi sesi bawaan adalah 8 jam.
+- Pengguna tidak aktif tidak dapat login.
+- Pengguna yang belum login diarahkan ke halaman login.
+
+### FR-002 — Otorisasi Role
+
+- Role yang tersedia adalah `ADMIN` dan `OPERATOR`.
+- Halaman pengaturan hanya dapat diakses `ADMIN`.
+- Endpoint perubahan pengaturan harus memeriksa sesi dan role di server.
+- Pembatasan UI tidak boleh menjadi satu-satunya pengamanan.
+
+### FR-003 — Penerimaan Data Sensor
+
+Endpoint utama:
+
+```text
+POST /api/sensor
+```
+
+Ketentuan:
+
+- request menggunakan `Content-Type: application/json`;
+- request menggunakan header `Authorization: Bearer <SENSOR_API_KEY>`;
+- sensor aktif saat ini menggunakan `sensorId: "TEMP-L4"`;
+- `temperature` wajib berupa angka finite;
+- rentang suhu valid adalah -40°C sampai 100°C;
+- `voltage` bersifat opsional;
+- rentang tegangan valid adalah 0 sampai 300 V;
+- request tidak sah mengembalikan status 401;
+- payload tidak valid mengembalikan status 400;
+- data valid mengembalikan status 201.
 
 Contoh payload:
 
 ```json
 {
-  "sensor_id": "esp32-01",
-  "temperature": 26.8,
-  "timestamp": "2026-07-03T07:32:01.000Z"
+  "sensorId": "TEMP-L4",
+  "temperature": 23.6,
+  "voltage": 220.4
 }
 ```
+
+### FR-004 — Monitoring Berbasis Perubahan
+
+Sistem target harus mencatat perubahan nilai, bukan setiap hasil pembacaan yang sama.
+
+Aturan awal:
+
+- suhu dibulatkan menjadi satu angka di belakang koma;
+- data suhu dikirim ketika suhu berubah minimal 0,1°C dari nilai terakhir yang berhasil dikirim;
+- perubahan tegangan dapat menggunakan ambang awal 1 V;
+- nilai terakhir hanya diperbarui di ESP32 setelah server berhasil menerima data;
+- kegagalan pengiriman harus dicoba kembali;
+- data identik tidak membuat baris baru di `sensor_readings`.
+
+Contoh:
+
+| Waktu | Nilai | Aksi |
+|---|---:|---|
+| 10:00:00 | 23,5°C | Simpan |
+| 10:00:15 | 23,5°C | Abaikan |
+| 10:00:30 | 23,5°C | Abaikan |
+| 10:00:45 | 23,6°C | Simpan |
+
+Catatan: sensor tetap membaca secara periodik agar dapat mendeteksi perubahan. Yang diubah adalah kebijakan pengiriman dan penyimpanannya.
+
+### FR-005 — Heartbeat dan Status Online
+
+- Perangkat harus mengirim heartbeat terpisah secara periodik.
+- Interval awal yang direkomendasikan adalah 60 detik.
+- Heartbeat memperbarui `last_seen` tanpa membuat data grafik baru.
+- Sensor dinyatakan online jika selisih waktu saat ini dengan `last_seen` masih berada dalam `offline_timeout`.
+- Sensor dinyatakan offline jika melewati batas tersebut.
+- Sampai heartbeat tersedia, sistem dapat menggunakan `recorded_at` data terakhir sebagai fallback.
+
+### FR-006 — Dashboard Utama
+
+Dashboard harus menampilkan:
+
+- suhu terbaru;
+- tegangan terbaru jika tersedia;
+- status sensor;
+- kondisi ruangan;
+- waktu pembaruan terakhir;
+- grafik suhu;
+- grafik tegangan;
+- batas normal, waspada, dan bahaya;
+- status koneksi sistem;
+- suhu tertinggi, terendah, dan rata-rata;
+- lima pembacaan terbaru;
+- tautan ke riwayat dan peringatan.
+
+Dashboard menyediakan pilihan Lantai 4 dan Lantai 5. Ketika sensor Lantai 5 belum tersedia, UI harus menampilkan status belum ada data dan tidak menggunakan data simulasi sebagai data nyata.
+
+### FR-007 — Grafik Dashboard
+
+- Pilihan periode: 1 jam, 6 jam, dan 24 jam.
+- Data harus diurutkan dari waktu lama ke waktu terbaru.
+- Grafik suhu dan tegangan menggunakan skala Y terpisah.
+- Garis batas suhu mengikuti pengaturan database.
+- Grafik tidak boleh memuat ulang seluruh riwayat pada setiap polling.
+- Riwayat penuh dimuat ketika halaman, lantai, atau periode berubah.
+- Polling berikutnya hanya mengambil data terbaru.
+- Jumlah titik yang dirender dibatasi, dengan nilai awal maksimal 300 titik.
+- Animasi Recharts dinonaktifkan untuk pembaruan realtime berulang.
+- If only one point is available, render a dot to make it visible.
+- Grafik menggunakan WIB pada sumbu dan tooltip.
+
+### FR-008 — Halaman Grafik
+
+Halaman grafik harus menyediakan:
+
+- periode 1 jam, 6 jam, 24 jam, dan 7 hari;
+- kartu nilai terakhir dan rata-rata;
+- grafik suhu Lantai 4 menggunakan data asli;
+- placeholder yang jelas untuk sensor yang belum tersedia;
+- pemisahan grafik suhu, tegangan, dan arus;
+- tombol pembaruan manual;
+- informasi waktu pembaruan terakhir;
+- export CSV;
+- status loading, kosong, dan error;
+- maksimal titik render untuk menjaga performa.
+
+### FR-009 — Riwayat Sensor
+
+Endpoint utama:
+
+```text
+GET /api/sensor/history
+```
+
+Filter yang didukung:
+
+- `sensorId`;
+- `hours`;
+- `date`;
+- `limit`.
 
 Ketentuan:
 
-- `sensor_id` wajib berupa string yang dikenal sistem.
-- `temperature` wajib berupa angka dalam rentang -50 sampai 100.
-- `timestamp` menggunakan ISO 8601 dan bersifat opsional.
-- Server memakai waktu penerimaan jika `timestamp` tidak tersedia.
-- Payload tidak valid ditolak dan dicatat pada log tanpa menghentikan subscriber.
+- hanya pengguna login yang dapat mengakses data;
+- urutan default adalah terbaru ke terlama;
+- filter tanggal menggunakan WIB;
+- API mengembalikan `id`, `sensorId`, `temperature`, `voltage`, dan `recordedAt`;
+- UI menyediakan pencarian/filter yang relevan;
+- jumlah data yang dimuat harus dibatasi untuk mencegah query berlebihan.
 
-## 7. Halaman dan Navigasi
+### FR-010 — Klasifikasi Suhu
 
-### Dashboard
+Nilai bawaan:
 
-Berisi kartu ringkasan, grafik, batas suhu, peringatan terbaru, data terakhir, ringkasan harian, dan status sistem.
+| Status | Kondisi |
+|---|---|
+| Normal | Suhu < batas waspada |
+| Waspada | Suhu ≥ batas waspada dan < batas bahaya |
+| Bahaya | Suhu ≥ batas bahaya |
 
-### Grafik
+Nilai awal:
 
-Halaman grafik historis dengan pilihan rentang waktu yang lebih panjang. Dapat dikerjakan setelah MVP dashboard.
+- batas waspada: 27°C;
+- batas bahaya: 30°C.
 
-### Riwayat
+Nilai aktual harus dibaca dari tabel `monitoring_settings`.
 
-Tabel histori dengan filter tanggal, status, dan sensor. Dapat dikerjakan setelah MVP dashboard.
+### FR-011 — Sistem Peringatan
 
-### Peringatan
+- Peringatan dibuat ketika suhu masuk level waspada atau bahaya.
+- Hanya boleh ada satu peringatan aktif per sensor.
+- Perubahan dari waspada ke bahaya dianggap eskalasi.
+- Peringatan waspada sebelumnya ditutup ketika terjadi eskalasi ke bahaya.
+- Ketika suhu kembali normal, siklus peringatan aktif ditutup.
+- Peringatan menyimpan nilai suhu, level, judul, detail, dan waktu.
+- Peringatan dapat memiliki status `Aktif` atau `Ditangani`.
+- Relasi ke pembacaan menggunakan `ON DELETE SET NULL` agar arsip riwayat tidak menghapus catatan peringatan.
 
-Daftar seluruh kejadian suhu beserta status penanganannya. Dapat dikerjakan setelah MVP dashboard.
+### FR-012 — Pengaturan Monitoring
 
-### Pengaturan
+Pengaturan global mencakup:
 
-Pengaturan ambang suhu dan sensor. Dapat dikerjakan setelah MVP dashboard.
+- batas suhu waspada;
+- batas suhu bahaya;
+- interval pembaruan dashboard;
+- batas waktu sensor offline;
+- nama sensor;
+- ID sensor;
+- notifikasi browser;
+- suara peringatan.
 
-## 8. Spesifikasi UI/UX
+Aturan:
 
-- Menggunakan Next.js App Router dan komponen Shadcn UI.
-- Visual dominan putih, hijau, abu-abu muda, dengan aksen oranye dan merah.
-- Sidebar pada desktop dan drawer pada mobile.
-- Kartu menggunakan border tipis, sudut membulat, dan bayangan ringan.
-- Hijau untuk normal, oranye untuk waspada, merah untuk bahaya.
-- Status tidak boleh dibedakan hanya berdasarkan warna; selalu sertakan teks atau ikon.
-- Tampilkan skeleton atau indikator pemuatan pada pembukaan pertama.
-- Format waktu menggunakan zona `Asia/Bangkok`/WIB (UTC+7).
+- batas bahaya harus lebih tinggi dari batas waspada;
+- hanya administrator yang dapat menyimpan perubahan;
+- nilai disimpan pada record global;
+- perubahan pengaturan dapat disebarkan ke UI tanpa reload penuh.
 
-## 9. Arsitektur Teknis
+### FR-013 — Export CSV
 
-### Frontend dan API
+- Halaman grafik dapat mengekspor data periode terpilih ke CSV.
+- Kolom menggunakan waktu WIB.
+- Kolom suhu, tegangan, dan arus dipisahkan.
+- Data yang belum tersedia dibiarkan kosong, bukan diisi nilai simulasi.
 
-- Next.js dengan TypeScript dan App Router.
-- Shadcn UI untuk komponen antarmuka.
-- Recharts untuk grafik.
-- Route Handler Next.js untuk endpoint dashboard.
-- Polling client setiap 4 detik menggunakan `fetch` atau SWR.
+### FR-014 — Arsip Excel Bulanan
 
-### Data dan integrasi
+Sistem target membuat satu file `.xlsx` untuk setiap bulan kalender.
 
-- PostgreSQL sebagai penyimpanan utama.
-- MQTT broker sebagai jalur komunikasi ESP32.
-- Worker Node.js terpisah sebagai MQTT subscriber.
-- Zod untuk validasi payload.
-- Koneksi database menggunakan Prisma atau driver `pg`.
-
-### Alur data
+Nama file yang direkomendasikan:
 
 ```text
-ESP32 + sensor → MQTT broker → subscriber worker → PostgreSQL
-                                                    ↓
-Browser ← polling 4 detik ← Next.js API route ← query database
+monitoring-ruang-server-YYYY-MM.xlsx
 ```
 
-## 10. Model Data Minimum
+Sheet wajib:
 
-### `sensors`
+1. `Data Sensor`
+2. `Ringkasan Harian`
 
-- `id`
-- `sensor_code` unik
-- `name`
-- `location`
-- `is_active`
-- `created_at`
+Format `Data Sensor`:
 
-### `temperature_readings`
+| No. | Tanggal dan Waktu WIB | Suhu Lantai 4 (°C) | Suhu Lantai 5 (°C) | Tegangan (V) | Arus (A) |
+|---:|---|---:|---:|---:|---:|
 
-- `id`
-- `sensor_id`
-- `temperature`
-- `recorded_at`
-- `received_at`
+Format `Ringkasan Harian` minimal berisi:
 
-Indeks diperlukan pada `(sensor_id, recorded_at DESC)` dan `recorded_at DESC`.
+- tanggal;
+- jumlah sampel;
+- rata-rata, minimum, dan maksimum suhu Lantai 4;
+- rata-rata, minimum, dan maksimum suhu Lantai 5;
+- rata-rata, minimum, dan maksimum tegangan;
+- rata-rata, minimum, dan maksimum arus.
 
-### `alerts`
+Ketentuan:
 
-- `id`
-- `sensor_id`
-- `reading_id`
-- `level`
-- `title`
-- `detail`
-- `acknowledged_at`, nullable
-- `created_at`
+- file diunggah ke folder Google Drive yang telah dikonfigurasi;
+- autentikasi Google menggunakan OAuth 2.0 dan refresh token;
+- status ekspor dicatat dalam `monthly_export_logs`;
+- file tidak boleh dianggap selesai sebelum jumlah baris diverifikasi.
 
-## 11. API Minimum
+### FR-015 — Finalisasi Arsip dan Penghapusan Aman
 
-### `GET /api/dashboard?hours=1`
+- Data hanya dihapus setelah upload Google Drive berhasil.
+- Jumlah baris yang diekspor harus sama dengan jumlah baris yang akan dihapus.
+- Penghapusan hanya mencakup bulan arsip tertentu.
+- Sistem dilarang menggunakan `TRUNCATE` untuk proses ini.
+- Proses final menggunakan fungsi database `finalize_monthly_sensor_archive(date)`.
+- Peringatan tetap dipertahankan walaupun `reading_id` menjadi null.
+- Kegagalan proses harus mengubah status log menjadi gagal dan tidak menghapus data.
 
-Mengembalikan suhu terbaru, status sensor, data grafik, lima pengukuran terakhir, ringkasan hari ini, dan peringatan terbaru dalam satu respons.
+### FR-016 — Zona Waktu
 
-### `GET /api/readings`
+- Seluruh tampilan pengguna menggunakan WIB.
+- Zona waktu canonical adalah `Asia/Jakarta`.
+- Timestamp database tetap menggunakan `TIMESTAMPTZ`.
+- Filter tanggal harus menghitung batas hari berdasarkan WIB.
+- File CSV dan Excel menggunakan label waktu WIB.
 
-Mengembalikan histori dengan pagination serta filter tanggal, status, dan sensor. Endpoint ini dapat dikerjakan setelah dashboard MVP.
+---
 
-### Format respons error
+## 8. Halaman dan Navigasi
+
+| Halaman | Route | Akses | Fungsi utama |
+|---|---|---|---|
+| Login | `/login` | Publik | Autentikasi pengguna |
+| Dashboard | `/` | Login | Ringkasan kondisi dan grafik utama |
+| Grafik | `/grafik` | Login | Analisis grafik periode panjang |
+| Riwayat | `/riwayat` | Login | Tabel historis dan filter |
+| Peringatan | `/peringatan` | Login | Daftar dan penanganan alarm |
+| Pengaturan | `/pengaturan` | Admin | Konfigurasi sistem |
+
+Navigasi menggunakan sidebar pada desktop dan drawer pada mobile.
+
+---
+
+## 9. Spesifikasi UI/UX
+
+### 9.1 Prinsip Tampilan
+
+- antarmuka bersih dan profesional;
+- informasi kritis terlihat tanpa banyak langkah;
+- desain responsif;
+- kartu dengan border tipis, sudut membulat, dan bayangan ringan;
+- menggunakan komponen Shadcn UI;
+- ikon menggunakan Lucide React;
+- grafik menggunakan Recharts.
+
+### 9.2 Warna Status
+
+| Status | Warna utama |
+|---|---|
+| Normal | Hijau |
+| Waspada | Amber/oranye |
+| Bahaya | Merah/rose |
+| Tidak tersedia | Abu-abu |
+| Informasi | Biru |
+
+Status tidak boleh disampaikan hanya melalui warna. UI juga harus menggunakan teks, ikon, atau label.
+
+### 9.3 State Wajib
+
+Setiap komponen data harus memiliki state:
+
+- loading;
+- data tersedia;
+- data kosong;
+- error;
+- sensor offline;
+- sensor belum tersedia.
+
+---
+
+## 10. Arsitektur Teknis
+
+### 10.1 Stack
+
+| Area | Teknologi |
+|---|---|
+| Framework | Next.js 16 App Router |
+| Bahasa | TypeScript |
+| UI | React, Shadcn UI, Tailwind CSS |
+| Grafik | Recharts |
+| Validasi | Zod |
+| Autentikasi | Auth.js / NextAuth Credentials |
+| Password hashing | bcryptjs |
+| Database | PostgreSQL Supabase |
+| Driver database | `pg` |
+| Hosting | Vercel |
+| Excel | ExcelJS |
+| Google Drive | Google APIs SDK |
+
+### 10.2 Komponen Utama
+
+```text
+ESP32
+  └── HTTPS POST /api/sensor
+        ├── autentikasi SENSOR_API_KEY
+        ├── validasi Zod
+        ├── transaksi PostgreSQL
+        ├── insert sensor_readings
+        └── evaluasi temperature_alerts
+
+Browser
+  ├── Auth.js session
+  ├── GET /api/settings
+  ├── GET /api/sensor/history
+  ├── API peringatan
+  └── polling data terbaru
+
+Cron arsip
+  ├── query data bulan sebelumnya
+  ├── buat Excel
+  ├── upload Google Drive
+  ├── verifikasi jumlah data
+  └── finalisasi penghapusan aman
+```
+
+### 10.3 Strategi Realtime
+
+Versi saat ini menggunakan polling HTTP karena sederhana dan kompatibel dengan deployment serverless.
+
+Strategi performa:
+
+- riwayat penuh dimuat hanya saat konteks berubah;
+- polling hanya meminta satu atau beberapa data terbaru;
+- permintaan yang masih berjalan tidak boleh ditumpuk;
+- polling dihentikan atau dikurangi ketika tab tidak aktif;
+- grafik dirender dengan jumlah titik terbatas;
+- data yang sama tidak ditambahkan ke state grafik;
+- pada tahap sensor, data identik tidak dikirim ke server.
+
+WebSocket atau Server-Sent Events dapat dipertimbangkan ketika kebutuhan realtime dan jumlah perangkat meningkat.
+
+---
+
+## 11. Model Data
+
+### 11.1 `users`
+
+| Kolom | Keterangan |
+|---|---|
+| `id` | UUID primary key |
+| `name` | Nama pengguna |
+| `email` | Email unik |
+| `password_hash` | Hash password |
+| `role` | `OPERATOR` atau `ADMIN` |
+| `is_active` | Status akun |
+| `created_at` | Waktu dibuat |
+| `updated_at` | Waktu diperbarui |
+
+### 11.2 `sensor_readings`
+
+| Kolom | Keterangan |
+|---|---|
+| `id` | Serial primary key |
+| `sensor_id` | Identitas sensor |
+| `temperature` | Suhu dalam °C |
+| `voltage` | Tegangan opsional |
+| `recorded_at` | Waktu perekaman |
+
+Indeks utama:
+
+```text
+(sensor_id, recorded_at DESC)
+```
+
+Pengembangan model berikutnya perlu mempertimbangkan salah satu pendekatan:
+
+1. menambah kolom `current` dan kolom metrik lainnya; atau
+2. mengubah ke model generik `metric`, `value`, dan `unit`.
+
+Keputusan harus dibuat sebelum sensor arus mulai diproduksikan.
+
+### 11.3 `temperature_alerts`
+
+| Kolom | Keterangan |
+|---|---|
+| `id` | Primary key |
+| `reading_id` | Referensi pembacaan, nullable saat data diarsipkan |
+| `sensor_id` | Identitas sensor |
+| `level` | `Waspada` atau `Bahaya` |
+| `status` | `Aktif` atau `Ditangani` |
+| `temperature` | Nilai saat peringatan dibuat |
+| `title` | Judul peringatan |
+| `detail` | Penjelasan tindakan |
+| `created_at` | Waktu dibuat |
+| `acknowledged_at` | Waktu diakui |
+| `resolved_at` | Waktu siklus selesai |
+| `handled_by` | Pengguna yang menangani |
+
+Hanya boleh ada satu peringatan aktif per sensor.
+
+### 11.4 `monitoring_settings`
+
+| Kolom | Keterangan |
+|---|---|
+| `id` | Record global |
+| `warning_temperature` | Batas waspada |
+| `danger_temperature` | Batas bahaya |
+| `refresh_interval` | Interval polling UI |
+| `offline_timeout` | Batas offline sensor |
+| `sensor_name` | Nama sensor |
+| `sensor_id` | ID sensor |
+| `browser_notification` | Toggle notifikasi browser |
+| `sound_alert` | Toggle suara |
+| `updated_at` | Waktu perubahan |
+
+### 11.5 `monthly_export_logs`
+
+Tabel ini mencatat proses arsip bulanan.
+
+Kolom minimal yang dibutuhkan:
+
+- bulan arsip;
+- status proses;
+- jumlah data sumber;
+- jumlah data yang diekspor;
+- ID file Google Drive;
+- URL file;
+- pesan error;
+- waktu mulai dan selesai.
+
+Status yang direkomendasikan:
+
+```text
+PROCESSING → UPLOADED → COMPLETED
+                  └──→ FAILED
+```
+
+### 11.6 `sensor_status` — Direncanakan
+
+Tabel status perangkat diperlukan untuk heartbeat.
+
+Kolom minimum:
+
+- `sensor_id`;
+- `last_seen`;
+- `last_temperature`;
+- `last_voltage`;
+- `firmware_version` opsional;
+- `updated_at`.
+
+---
+
+## 12. API dan Kontrak
+
+### 12.1 Sensor
+
+| Method | Endpoint | Akses | Fungsi |
+|---|---|---|---|
+| POST | `/api/sensor` | Bearer API key | Menyimpan pembacaan sensor |
+| GET | `/api/sensor/history` | Login | Mengambil riwayat sensor |
+
+### 12.2 Pengaturan
+
+| Method | Endpoint | Akses | Fungsi |
+|---|---|---|---|
+| GET | `/api/settings` | Aplikasi | Membaca pengaturan global |
+| POST | `/api/settings` | Admin | Mengubah pengaturan global |
+
+### 12.3 Autentikasi
+
+Auth.js menangani route autentikasi melalui:
+
+```text
+/api/auth/[...nextauth]
+```
+
+### 12.4 Google Drive dan Arsip
+
+Route yang digunakan atau direncanakan:
+
+- OAuth start;
+- OAuth callback;
+- test upload Google Drive;
+- test Excel;
+- cron ekspor bulanan.
+
+Route test harus dibatasi pada development atau dihapus setelah integrasi produksi selesai.
+
+### 12.5 Format Error
+
+Format respons error yang konsisten:
 
 ```json
 {
-  "message": "Gagal membaca data monitoring",
-  "code": "DASHBOARD_READ_FAILED"
+  "success": false,
+  "error": "Pesan singkat",
+  "details": "Detail aman untuk debugging"
 }
 ```
 
-## 12. Kebutuhan Nonfungsional
+Stack trace, credential, dan connection string tidak boleh dikirim ke browser.
 
-- Waktu respons API target kurang dari 500 ms pada penggunaan normal.
-- Dashboard pertama kali tampil dalam target kurang dari 3 detik pada koneksi normal.
-- Query grafik maksimum dibatasi dan dapat menggunakan agregasi untuk data besar.
-- Kredensial database dan MQTT hanya disimpan dalam environment variable.
-- Endpoint tidak menampilkan stack trace atau kredensial kepada browser.
-- Subscriber harus reconnect otomatis setelah koneksi MQTT terputus.
-- Penyimpanan data tidak boleh gagal hanya karena satu payload rusak.
-- UI memenuhi prinsip aksesibilitas dasar: keyboard, label tombol, dan kontras warna.
+---
 
-## 13. Kriteria Penerimaan MVP
+## 13. Keamanan
 
-MVP dianggap selesai apabila:
+- Rahasia disimpan dalam environment variable.
+- `SENSOR_API_KEY` tidak ditulis di repository.
+- Endpoint sensor menggunakan Bearer token.
+- Password disimpan menggunakan bcrypt.
+- Pengaturan hanya dapat diubah administrator.
+- Query menggunakan parameter PostgreSQL untuk mencegah SQL injection.
+- Koneksi database menggunakan SSL.
+- Route riwayat memerlukan sesi pengguna.
+- Refresh token Google tidak boleh ditampilkan pada client.
+- `CRON_SECRET` melindungi endpoint cron.
+- Log produksi tidak boleh mencetak password atau rahasia.
+- Route pengujian integrasi tidak boleh aktif secara terbuka di produksi.
 
-1. ESP32 dapat mengirim payload MQTT yang valid.
-2. Subscriber menyimpan payload valid ke PostgreSQL.
-3. Payload tidak valid ditolak tanpa menghentikan worker.
-4. Dashboard menampilkan data terbaru dari database.
-5. Data diperbarui otomatis setiap 4 detik tanpa reload.
-6. Grafik dapat berganti antara periode 1, 6, dan 24 jam.
-7. Status suhu mengikuti aturan normal, waspada, dan bahaya.
-8. Sensor berubah menjadi offline setelah batas waktu terlewati.
-9. Peringatan muncul saat status berubah ke waspada atau bahaya.
-10. Gangguan API tidak menghapus data terakhir dari layar.
-11. Dashboard berfungsi baik pada desktop dan mobile.
-12. Waktu ditampilkan konsisten dalam WIB.
+Environment variable utama:
 
-## 14. Tahapan Implementasi
+```text
+DB_HOST
+DB_PORT
+DB_NAME
+DB_USER
+DB_PASSWORD
+AUTH_SECRET
+SENSOR_API_KEY
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URI
+GOOGLE_REFRESH_TOKEN
+GOOGLE_DRIVE_FOLDER_ID
+CRON_SECRET
+```
 
-### Fase 1 — Fondasi
+---
 
-- Inisialisasi Next.js dan Shadcn UI.
-- Menyusun layout dashboard menggunakan data mock.
-- Menyiapkan PostgreSQL dan migration.
+## 14. Kebutuhan Nonfungsional
 
-### Fase 2 — Integrasi sensor
+### NFR-001 — Performa
 
-- Menyiapkan MQTT broker dan topic.
-- Membuat subscriber dan validasi payload.
-- Menyimpan data pembacaan serta peringatan.
+- dashboard awal ditargetkan tampil dalam waktu kurang dari 3 detik pada koneksi normal;
+- API pembacaan terbaru ditargetkan merespons kurang dari 500 ms pada beban normal;
+- grafik tidak merender lebih dari 300–360 titik sekaligus;
+- query riwayat harus menggunakan indeks waktu dan sensor;
+- polling tidak boleh mengambil ribuan baris secara berulang.
 
-### Fase 3 — Data nyata
+### NFR-002 — Reliabilitas
 
-- Membuat API dashboard.
-- Menghubungkan UI dengan polling 4 detik.
-- Menangani loading, offline, dan error.
+- kegagalan satu payload tidak menghentikan sistem;
+- transaksi pembacaan dan peringatan harus rollback jika terjadi error;
+- data terakhir tetap ditampilkan ketika polling terbaru gagal;
+- permintaan polling tidak boleh saling menumpuk;
+- proses arsip gagal tidak boleh menghapus data sumber.
 
-### Fase 4 — Verifikasi
+### NFR-003 — Skalabilitas
 
-- Menguji status batas suhu.
-- Menguji reconnect MQTT dan sensor offline.
-- Menguji tampilan desktop/mobile.
-- Menguji performa query dan polling.
+- desain ID sensor harus mendukung lebih dari satu sensor;
+- query selalu mendukung filter sensor;
+- tabel menggunakan indeks yang sesuai;
+- model data metrik perlu disiapkan sebelum penambahan banyak jenis sensor.
 
-## 15. Pengembangan Lanjutan
+### NFR-004 — Aksesibilitas
 
-- Notifikasi WhatsApp, Telegram, dan email.
-- Pengaturan ambang suhu melalui UI.
-- Autentikasi dan role operator/admin.
-- Banyak ruangan dan lokasi.
-- Monitoring kelembapan, asap, pintu, dan daya listrik.
-- Acknowledgement serta catatan penanganan alarm.
-- Export CSV/PDF dan laporan berkala.
-- WebSocket atau Server-Sent Events bila kebutuhan real-time meningkat.
+- tombol memiliki label yang jelas;
+- status tidak bergantung pada warna saja;
+- navigasi dapat digunakan melalui keyboard;
+- kontras warna cukup;
+- layout tetap terbaca pada layar kecil.
 
-## 16. Asumsi dan Keputusan MVP
+### NFR-005 — Maintainability
 
-- Polling dipilih karena sederhana, stabil, dan sesuai interval 3–5 detik.
-- Interval bawaan ditetapkan 4 detik.
-- Satu sumber waktu utama digunakan di server dan ditampilkan sebagai WIB.
-- MQTT hanya diterima oleh worker backend; browser tidak terhubung langsung ke broker.
-- Ambang suhu awal mengikuti desain referensi dan nantinya dapat dibuat configurable.
+- TypeScript digunakan pada frontend dan API;
+- validasi request menggunakan Zod;
+- fungsi format waktu menggunakan `Asia/Jakarta` secara konsisten;
+- perubahan besar harus memperbarui PRD dan changelog;
+- kode test sementara harus diberi penanda dan dihapus setelah selesai.
+
+---
+
+## 15. Kriteria Penerimaan
+
+### 15.1 Sensor dan API
+
+- [ ] ESP32 berhasil mengirim data dengan Bearer API key.
+- [ ] Payload invalid ditolak.
+- [ ] `TEMP-L4` tersimpan di database.
+- [ ] Data identik tidak disimpan berulang setelah change-based monitoring aktif.
+- [ ] Heartbeat memperbarui status tanpa menambah riwayat.
+
+### 15.2 Dashboard
+
+- [ ] Suhu terbaru tampil dari database.
+- [ ] Status suhu mengikuti pengaturan.
+- [ ] Sensor berubah offline setelah timeout.
+- [ ] Grafik muncul tanpa delay berlebihan.
+- [ ] Polling terbaru tidak memuat ulang seluruh riwayat.
+- [ ] Grafik tetap terlihat saat hanya ada satu titik.
+- [ ] Periode 1, 6, dan 24 jam berfungsi.
+
+### 15.3 Grafik dan Riwayat
+
+- [ ] Halaman grafik memakai data asli Lantai 4.
+- [ ] Tidak ada nilai simulasi untuk sensor yang belum tersedia.
+- [ ] Periode 7 hari berfungsi.
+- [ ] Export CSV menghasilkan kolom terpisah.
+- [ ] Waktu tampil dalam WIB.
+
+### 15.4 Peringatan
+
+- [ ] Peringatan dibuat saat masuk waspada.
+- [ ] Peringatan meningkat saat masuk bahaya.
+- [ ] Tidak ada duplikasi peringatan aktif.
+- [ ] Siklus selesai saat suhu kembali normal.
+- [ ] Catatan peringatan tidak hilang saat pembacaan diarsipkan.
+
+### 15.5 Arsip Bulanan
+
+- [ ] File Excel memiliki dua sheet wajib.
+- [ ] Kolom suhu, tegangan, dan arus terpisah.
+- [ ] File berhasil masuk ke folder Google Drive yang ditentukan.
+- [ ] Jumlah data sumber dan ekspor cocok.
+- [ ] Finalisasi hanya menghapus bulan yang telah diverifikasi.
+- [ ] Kegagalan upload tidak menghapus data.
+
+### 15.6 Keamanan
+
+- [ ] Halaman privat tidak dapat dibuka tanpa login.
+- [ ] Operator tidak dapat mengubah pengaturan.
+- [ ] API key dan token tidak tersedia pada client.
+- [ ] Route test tidak terbuka di produksi.
+
+---
+
+## 16. Pengujian
+
+### 16.1 Unit Test yang Direkomendasikan
+
+- klasifikasi normal/waspada/bahaya;
+- validasi payload sensor;
+- pembulatan perubahan suhu;
+- penyaringan data identik;
+- perhitungan min/max/rata-rata;
+- pembentukan rentang bulan WIB;
+- pemetaan data Excel;
+- verifikasi jumlah data arsip.
+
+### 16.2 Integration Test
+
+- ESP32/API ke PostgreSQL;
+- insert pembacaan dan pembuatan peringatan dalam transaksi;
+- riwayat dengan filter sensor, jam, tanggal, dan limit;
+- login dan role;
+- upload file ke Google Drive;
+- fungsi finalisasi arsip.
+
+### 16.3 End-to-End Test
+
+- login sebagai operator;
+- melihat dashboard;
+- mengganti periode grafik;
+- melihat peringatan;
+- login sebagai admin dan mengubah batas;
+- menguji suhu normal, waspada, bahaya, lalu normal kembali;
+- menguji sensor berhenti mengirim;
+- menguji export CSV dan arsip bulanan.
+
+---
+
+## 17. Status Implementasi
+
+| Area | Status | Catatan |
+|---|---|---|
+| Next.js dan UI | Selesai dasar | App Router, Shadcn UI, responsif |
+| Login | Selesai | Auth.js Credentials, JWT |
+| Role admin/operator | Selesai dasar | Pengaturan dibatasi admin |
+| PostgreSQL Supabase | Selesai | Driver `pg` |
+| Sensor Lantai 4 | Aktif | ID `TEMP-L4` |
+| Sensor Lantai 5 | Belum tersedia | UI disiapkan |
+| API sensor | Selesai dasar | Suhu + tegangan opsional |
+| Dashboard | Aktif dikembangkan | Optimasi grafik/polling |
+| Halaman grafik | Aktif dikembangkan | L4 realtime tersedia |
+| Riwayat | Tersedia | Filter melalui API |
+| Peringatan | Tersedia | Siklus waspada/bahaya |
+| Pengaturan | Tersedia | Global settings |
+| Change-based monitoring | Direncanakan dekat | Perlu perubahan ESP32 + heartbeat |
+| Google OAuth/Drive | Teruji dasar | Upload file test berhasil |
+| Excel bulanan | Teruji dengan mock | Integrasi data asli belum final |
+| Penghapusan arsip aman | Database siap | Eksekusi produksi belum dilakukan |
+| Email laporan | Belum dikerjakan | Pengembangan berikutnya |
+
+---
+
+## 18. Roadmap
+
+### Fase 1 — Fondasi — Selesai
+
+- Next.js dan Shadcn UI;
+- PostgreSQL Supabase;
+- autentikasi;
+- dashboard awal;
+- deployment Vercel.
+
+### Fase 2 — Monitoring Suhu L4 — Selesai Dasar
+
+- endpoint sensor;
+- sensor `TEMP-L4`;
+- riwayat;
+- grafik;
+- status;
+- peringatan;
+- pengaturan.
+
+### Fase 3 — Optimasi Realtime — Sedang Berjalan
+
+- pemuatan riwayat satu kali;
+- polling hanya data terbaru;
+- pembatasan titik grafik;
+- pencatatan berbasis perubahan;
+- heartbeat perangkat;
+- pemisahan status online dari riwayat.
+
+### Fase 4 — Arsip Bulanan — Sedang Berjalan
+
+- OAuth Google;
+- upload Google Drive;
+- workbook Excel;
+- data asli database;
+- verifikasi jumlah data;
+- finalisasi aman;
+- cron produksi.
+
+### Fase 5 — Penambahan Sensor
+
+- suhu Lantai 5;
+- sensor tegangan aktual;
+- sensor arus;
+- penyesuaian model data;
+- grafik dan ringkasan per metrik.
+
+### Fase 6 — Notifikasi dan Operasional
+
+- browser notification;
+- suara peringatan;
+- email laporan;
+- dokumentasi operasional;
+- backup dan restore;
+- audit log perubahan pengaturan.
+
+---
+
+## 19. Risiko dan Mitigasi
+
+| Risiko | Dampak | Mitigasi |
+|---|---|---|
+| Data identik tersimpan terus | Database membesar cepat | Change-based monitoring + heartbeat |
+| Suhu stabil membuat sensor dianggap offline | Status salah | Pisahkan `last_seen` dari `sensor_readings` |
+| Riwayat 24 jam sangat besar | Grafik lambat | Limit API, incremental polling, downsampling |
+| Upload Drive berhasil tetapi log gagal | Status arsip tidak konsisten | Transaksi status dan proses idempotent |
+| Data terhapus sebelum file valid | Kehilangan data | Verifikasi row count dan fungsi finalisasi |
+| API key bocor | Data palsu masuk | Rotasi secret, Bearer auth, jangan commit secret |
+| Sensor baru butuh skema berbeda | Refactor besar | Putuskan model metrik sebelum produksi multi-sensor |
+| Waktu berbeda antara server dan UI | Filter salah | Gunakan TIMESTAMPTZ + `Asia/Jakarta` |
+| Route test aktif di produksi | Risiko keamanan | Blokir berdasarkan environment atau hapus |
+
+---
+
+## 20. Keputusan Produk yang Masih Terbuka
+
+1. Ambang perubahan suhu final: 0,1°C atau 0,2°C.
+2. Interval heartbeat final: 60 detik atau menyesuaikan `offline_timeout`.
+3. Model penyimpanan multi-metrik:
+   - kolom tetap (`temperature`, `voltage`, `current`); atau
+   - model generik (`metric`, `value`, `unit`).
+4. Apakah arsip bulanan dijalankan tanggal 1 pukul tertentu dalam WIB.
+5. Kebijakan retensi data setelah arsip.
+6. Apakah file bulanan dikirim juga melalui email.
+7. Mekanisme acknowledgement peringatan oleh operator.
+8. Apakah status perangkat membutuhkan informasi firmware dan kekuatan Wi-Fi.
+
+---
+
+## 21. Tata Kelola dan Pembaruan PRD
+
+Dokumen ini adalah sumber kebutuhan produk utama. PRD harus diperbarui ketika terjadi salah satu kondisi berikut:
+
+- penambahan atau penghapusan fitur;
+- perubahan endpoint atau kontrak payload;
+- perubahan tabel database;
+- perubahan aturan status, alarm, atau retensi;
+- perubahan integrasi sensor;
+- perubahan arsitektur realtime;
+- perubahan proses arsip;
+- perubahan role dan keamanan;
+- perubahan deployment penting.
+
+### 21.1 Aturan Versi
+
+- perubahan kecil atau klarifikasi: naikkan versi minor, misalnya `2.0` menjadi `2.1`;
+- perubahan ruang lingkup atau arsitektur besar: naikkan versi mayor, misalnya `2.x` menjadi `3.0`;
+- setiap perubahan menambahkan baris pada changelog;
+- tanggal menggunakan format `DD MMMM YYYY`;
+- item roadmap dan status implementasi harus ikut diperbarui.
+
+### 21.2 Checklist Pembaruan
+
+- [ ] Ringkasan produk masih sesuai.
+- [ ] Ruang lingkup sesuai implementasi.
+- [ ] Kebutuhan fungsional diperbarui.
+- [ ] Model data diperbarui.
+- [ ] Endpoint diperbarui.
+- [ ] Kriteria penerimaan diperbarui.
+- [ ] Status implementasi diperbarui.
+- [ ] Roadmap diperbarui.
+- [ ] Risiko baru dicatat.
+- [ ] Changelog ditambahkan.
+
+---
+
+## 22. Changelog
+
+| Versi | Tanggal | Perubahan |
+|---|---|---|
+| 2.1 | 24 Agustus 2026 | Menggabungkan draf lama dan versi lengkap (v2.0) ke root PRD.md sebagai satu-satunya dokumen sumber kebenaran, memperbarui status, serta detail arsitektur HTTPS API dan target keamanan. |
+| 2.0 | 23 Juli 2026 | Menyusun ulang PRD berdasarkan implementasi aktual: direct HTTPS API, Auth.js, PostgreSQL Supabase, dashboard, grafik, peringatan, pengaturan, Google Drive, Excel bulanan, optimasi realtime, change-based monitoring, dan heartbeat. |
+| 1.0 | Sebelum 23 Juli | Draft awal monitoring suhu yang masih menggunakan rancangan MQTT. |
+
+---
+
+## 23. Definition of Done Produk
+
+Satu fitur dianggap selesai ketika:
+
+1. kebutuhan dan kriteria penerimaan tertulis;
+2. implementasi frontend/backend selesai;
+3. validasi dan penanganan error tersedia;
+4. role dan keamanan diperiksa;
+5. build produksi berhasil;
+6. pengujian utama berhasil;
+7. dokumentasi teknis dan PRD diperbarui;
+8. perubahan dicatat dalam changelog;
+9. tidak ada data simulasi yang ditampilkan sebagai data produksi;
+10. perubahan tidak merusak fitur yang sudah berjalan.
