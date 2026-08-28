@@ -328,23 +328,57 @@ export function DangerAlertOverlay() {
     return () => window.clearInterval(timer)
   }, [checkAlerts, isSuppressed])
 
-  if (isSuppressed) return null
+  const glowOpacity = hasDanger ? 1 : 0
 
   return (
     <>
-      {/* ── Viewport red glow border ──────────────────────────────────── */}
+      {/* ── Edge vignette: 4 separate gradient panels, no box corners ── */}
+      {/* Top edge */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[9998]"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[9998]"
         style={{
-          boxShadow: hasDanger
-            ? [
-                "inset 0 0 80px 8px rgba(239, 68, 68, 0.55)",
-                "inset 0 0 200px 60px rgba(239, 68, 68, 0.25)",
-              ].join(", ")
-            : "none",
-          transition: "box-shadow 1s ease",
-          animation: hasDanger ? "danger-border-pulse 2.5s ease-in-out infinite" : "none",
+          height: "220px",
+          background: "linear-gradient(to bottom, rgba(239,68,68,0.55) 0%, transparent 100%)",
+          opacity: glowOpacity,
+          transition: "opacity 1s ease",
+          animation: hasDanger ? "danger-edge-pulse 2.5s ease-in-out infinite" : "none",
+        }}
+      />
+      {/* Bottom edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[9998]"
+        style={{
+          height: "220px",
+          background: "linear-gradient(to top, rgba(239,68,68,0.55) 0%, transparent 100%)",
+          opacity: glowOpacity,
+          transition: "opacity 1s ease",
+          animation: hasDanger ? "danger-edge-pulse 2.5s ease-in-out infinite" : "none",
+        }}
+      />
+      {/* Left edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 left-0 z-[9998]"
+        style={{
+          width: "220px",
+          background: "linear-gradient(to right, rgba(239,68,68,0.55) 0%, transparent 100%)",
+          opacity: glowOpacity,
+          transition: "opacity 1s ease",
+          animation: hasDanger ? "danger-edge-pulse 2.5s ease-in-out infinite" : "none",
+        }}
+      />
+      {/* Right edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 right-0 z-[9998]"
+        style={{
+          width: "220px",
+          background: "linear-gradient(to left, rgba(239,68,68,0.55) 0%, transparent 100%)",
+          opacity: glowOpacity,
+          transition: "opacity 1s ease",
+          animation: hasDanger ? "danger-edge-pulse 2.5s ease-in-out infinite" : "none",
         }}
       />
 
@@ -366,6 +400,7 @@ export function DangerAlertOverlay() {
     </>
   )
 }
+
 
 
 
