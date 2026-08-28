@@ -337,14 +337,14 @@ export function DangerAlertOverlay() {
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-[9998]"
         style={{
-          border: hasDanger
-            ? "6px solid rgba(239, 68, 68, 0.65)"
-            : "6px solid transparent",
           boxShadow: hasDanger
-            ? "inset 0 0 100px 30px rgba(239, 68, 68, 0.55)"
+            ? [
+                "inset 0 0 80px 8px rgba(239, 68, 68, 0.55)",
+                "inset 0 0 200px 60px rgba(239, 68, 68, 0.25)",
+              ].join(", ")
             : "none",
-          transition: "border-color 0.8s ease, box-shadow 0.8s ease",
-          animation: hasDanger ? "danger-border-pulse 2.2s ease-in-out infinite" : "none",
+          transition: "box-shadow 1s ease",
+          animation: hasDanger ? "danger-border-pulse 2.5s ease-in-out infinite" : "none",
         }}
       />
 
