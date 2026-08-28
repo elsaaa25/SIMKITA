@@ -221,34 +221,7 @@ export function DangerAlertOverlay() {
     p => pathname === p || pathname.startsWith(p + "/"),
   )
 
-  const [isGlowActive, setIsGlowActive] = useState(false)
-
-  // Sync border glow with warning sound playback timing
-  useEffect(() => {
-    if (!hasDanger || isSuppressed) {
-      setIsGlowActive(false)
-      return
-    }
-
-    const updateGlowStatus = () => {
-      const soundState = readDangerSoundState()
-      if (!soundState) {
-        setIsGlowActive(false)
-        return
-      }
-
-      const elapsed = Date.now() - soundState.playedAt
-      // Sirene berbunyi selama ~10 detik
-      const isSoundPlaying = elapsed >= 0 && elapsed < 10000
-
-      setIsGlowActive(isSoundPlaying)
-    }
-
-    updateGlowStatus()
-    const interval = window.setInterval(updateGlowStatus, 200)
-
-    return () => window.clearInterval(interval)
-  }, [hasDanger, isSuppressed])
+  // Glow aktif setiap kali ada alarm Bahaya yang masih Aktif di database
 
   const checkAlerts = useCallback(async () => {
     if (isSuppressed || checkingRef.current) return
@@ -364,14 +337,14 @@ export function DangerAlertOverlay() {
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-[9998]"
         style={{
-          border: isGlowActive
+          border: hasDanger
             ? "6px solid rgba(239, 68, 68, 0.65)"
             : "6px solid transparent",
-          boxShadow: isGlowActive
+          boxShadow: hasDanger
             ? "inset 0 0 100px 30px rgba(239, 68, 68, 0.55)"
             : "none",
           transition: "border-color 0.8s ease, box-shadow 0.8s ease",
-          animation: isGlowActive ? "danger-border-pulse 2.2s ease-in-out infinite" : "none",
+          animation: hasDanger ? "danger-border-pulse 2.2s ease-in-out infinite" : "none",
         }}
       />
 
