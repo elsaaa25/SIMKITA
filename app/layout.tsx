@@ -3,6 +3,7 @@ import { Figtree, Geist_Mono } from "next/font/google"
 import { SessionProvider } from "next-auth/react"
 
 import { AlertNotificationCenter } from "@/components/alert-notification-center"
+import { DangerAlertOverlay } from "@/components/danger-alert-overlay"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 import "./globals.css"
@@ -51,6 +52,7 @@ export default function RootLayout({
         <SessionProvider>
           <TooltipProvider>
             <AlertNotificationCenter />
+            <DangerAlertOverlay />
             {children}
           </TooltipProvider>
         </SessionProvider>
