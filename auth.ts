@@ -67,13 +67,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = user.role
         token.mustChangePassword =
           user.mustChangePassword
         token.sessionVersion =
           user.sessionVersion
+      }
+
+      if (
+        trigger === "update" &&
+        typeof token.sub === "string"
+      ) {
+        const result = await db.query<{
+          name: string
+        }>(
+          `
+            SELECT name
+            FROM users
+            WHERE id = $1
+              AND is_active = TRUE
+            LIMIT 1
+          `,
+          [token.sub],
+        )
+
+        const currentUser = result.rows[0]
+
+        if (currentUser) {
+          token.name = currentUser.name
+        }
       }
 
       return token

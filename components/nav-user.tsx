@@ -25,7 +25,7 @@ import {
 import {
   ChevronsUpDown,
   LogOut,
-  User,
+  UserRound,
   Settings,
   Bell,
   ShieldCheck,
@@ -95,6 +95,12 @@ export function NavUser() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                <Link href="/profil">
+                  <UserRound className="mr-2 size-4 text-slate-500" />
+                  Edit Profil
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer text-xs">
                 <Link href="/pengaturan">
                   <Settings className="mr-2 size-4 text-slate-500" />
