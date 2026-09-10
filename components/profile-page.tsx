@@ -184,7 +184,7 @@ export function ProfilePage() {
 
       setProfile(result.data)
       setName(result.data.name)
-      await updateSession()
+      await updateSession({})
       setFeedback({
         type: "success",
         message: result.message ?? "Profil berhasil disimpan.",
