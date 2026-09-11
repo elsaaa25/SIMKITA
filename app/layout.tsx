@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Figtree, Geist_Mono } from "next/font/google"
+import { Roboto, Geist_Mono } from "next/font/google"
 import { SessionProvider } from "next-auth/react"
 
 import { AlertNotificationCenter } from "@/components/alert-notification-center"
@@ -8,9 +8,10 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 import "./globals.css"
 
-const figtree = Figtree({
-  variable: "--font-figtree",
+const roboto = Roboto({
+  weight: ["300", "400", "500", "700", "900"],
   subsets: ["latin"],
+  variable: "--font-roboto",
 })
 
 const geistMono = Geist_Mono({
@@ -47,7 +48,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${figtree.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${roboto.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <SessionProvider>
           <TooltipProvider>

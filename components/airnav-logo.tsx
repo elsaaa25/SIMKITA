@@ -25,11 +25,6 @@ export function AirNavLogo({
           alt="AirNav Indonesia"
           className="h-7 w-auto max-w-[145px] shrink-0 object-contain"
         />
-        {showText && (
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-l border-slate-200 dark:border-slate-800 pl-2">
-            BWX
-          </span>
-        )}
       </div>
     </div>
   )

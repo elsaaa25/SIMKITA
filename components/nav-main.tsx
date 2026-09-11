@@ -35,9 +35,6 @@ export function NavMain({ items }: { items: NavItem[] }) {
 
   return (
     <SidebarGroup className="py-1">
-      <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5 px-2">
-        Navigasi Utama
-      </SidebarGroupLabel>
       <SidebarMenu className="gap-1.5">
         {items.map((item) => {
           const hasSubItems = item.items && item.items.length > 0
@@ -52,11 +49,10 @@ export function NavMain({ items }: { items: NavItem[] }) {
                   asChild
                   isActive={pathname === item.url}
                   tooltip={item.title}
-                  className={`h-9.5 px-3 rounded-xl transition-all ${
-                    pathname === item.url
+                  className={`h-9.5 px-3 rounded-xl transition-all ${pathname === item.url
                       ? "bg-[#005A9C] text-white font-semibold shadow-sm hover:bg-[#00487C] hover:text-white"
                       : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
-                  }`}
+                    }`}
                 >
                   <Link href={item.url} className="flex items-center gap-3">
                     {item.icon}
