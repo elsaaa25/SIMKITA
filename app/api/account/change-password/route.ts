@@ -81,6 +81,24 @@ function escapeHtml(
     .replaceAll("'", "&#039;")
 }
 
+function resolveAppUrl(request: Request): string {
+  // Coba dari APP_URL dulu, lalu NEXTAUTH_URL, lalu dari host request.
+  const fromEnv = (
+    process.env.APP_URL ??
+    process.env.NEXTAUTH_URL ??
+    ""
+  ).trim().replace(/\/+$/, "")
+
+  if (fromEnv) return fromEnv
+
+  // Fallback: bangun dari header host request.
+  const host = request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    "localhost:3000"
+  const proto = request.headers.get("x-forwarded-proto") ?? "https"
+  return `${proto}://${host}`
+}
+
 export async function POST(
   request: Request,
 ) {
@@ -238,16 +256,7 @@ export async function POST(
         ],
       )
 
-      const appUrl =
-        process.env.APP_URL
-          ?.trim()
-          .replace(/\/+$/, "")
-
-      if (!appUrl) {
-        throw new Error(
-          "APP_URL belum dikonfigurasi.",
-        )
-      }
+      const appUrl = resolveAppUrl(request)
 
       const confirmationUrl =
         `${appUrl}/konfirmasi-password` +
