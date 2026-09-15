@@ -76,15 +76,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.sessionVersion
       }
 
-      if (
-        trigger === "update" &&
-        typeof token.sub === "string"
-      ) {
+      // Setiap request: validasi session_version dari DB agar
+      // sesi lama otomatis invalid setelah password diubah.
+      if (typeof token.sub === "string") {
         const result = await db.query<{
           name: string
+          session_version: number
+          must_change_password: boolean
         }>(
           `
-            SELECT name
+            SELECT
+              name,
+              session_version,
+              must_change_password
             FROM users
             WHERE id = $1
               AND is_active = TRUE
@@ -95,8 +99,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const currentUser = result.rows[0]
 
-        if (currentUser) {
+        if (!currentUser) {
+          // Akun tidak aktif — invalidate token.
+          token.sessionVersion = -1
+        } else if (
+          Number(currentUser.session_version) !==
+          Number(token.sessionVersion)
+        ) {
+          // session_version berubah (misal: setelah ganti password).
+          // Invalidate token agar user wajib login ulang.
+          token.sessionVersion = -1
+        } else {
+          // Refresh data terbaru.
           token.name = currentUser.name
+          token.mustChangePassword = Boolean(
+            currentUser.must_change_password,
+          )
         }
       }
 
@@ -108,6 +126,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   token,
 }) {
   if (!session.user) {
+    return session
+  }
+
+  // Sesi tidak valid jika sessionVersion = -1
+  if (token.sessionVersion === -1) {
+    session.user.id = ""
     return session
   }
 
@@ -129,6 +153,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ) {
     session.user.role = token.role
   }
+
+  session.user.mustChangePassword = Boolean(
+    token.mustChangePassword,
+  )
 
   return session
 },
