@@ -104,8 +104,8 @@ export async function POST(request: Request) {
 
     // Simpan Admin Utama
     await db.query(
-      `INSERT INTO users (name, email, password_hash, role, is_active)
-       VALUES ($1, $2, $3, 'ADMIN', TRUE)`,
+      `INSERT INTO users (name, email, password_hash, role, is_active, email_verified_at, must_change_password)
+       VALUES ($1, $2, $3, 'ADMIN', TRUE, NOW(), FALSE)`,
       [name, email, passwordHash]
     )
 

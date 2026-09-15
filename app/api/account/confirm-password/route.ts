@@ -62,7 +62,6 @@ export async function POST(request: Request) {
         WHERE password_confirmation_token_hash = $1
           AND password_confirmation_expires_at > NOW()
           AND pending_password_hash IS NOT NULL
-          AND must_change_password = TRUE
           AND is_active = TRUE
           AND email_verified_at IS NOT NULL
         RETURNING
