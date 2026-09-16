@@ -20,9 +20,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Server Room Monitoring - AirNav Indonesia",
+  title: "SIMKITA - AirNav Banyuwangi",
   description:
-    "Dashboard pemantauan suhu ruang server & ATC Bandara Banyuwangi",
+    "Sistem Monitoring Kelistrikan & Temperatur Area di Ruang Server dan ATC ",
 }
 
 export default function RootLayout({
