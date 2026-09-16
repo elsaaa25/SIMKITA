@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   title: "SIMKITA - AirNav Banyuwangi",
   description:
     "Sistem Monitoring Kelistrikan & Temperatur Area di Ruang Server dan ATC ",
+  icons: {
+    icon: "/SIMKITA.png",
+    shortcut: "/SIMKITA.png",
+    apple: "/SIMKITA.png",
+  },
 }
 
 export default function RootLayout({

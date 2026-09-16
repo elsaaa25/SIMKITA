@@ -6,6 +6,6 @@ export const config = {
      * Jalankan autentikasi hanya untuk halaman.
      * Semua endpoint /api dilewati oleh proxy.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    "/((?!api|_next/static|_next/image|SIMKITA.png|robots.txt|sitemap.xml).*)",
   ],
 }
