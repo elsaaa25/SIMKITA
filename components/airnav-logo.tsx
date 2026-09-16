@@ -9,21 +9,21 @@ export function AirNavLogo({
 }) {
   return (
     <div className={`flex items-center gap-2 min-w-0 overflow-hidden ${className}`}>
-      {/* Collapsed Sidebar Mode: Clean emblem display */}
-      <div className="relative size-8 shrink-0 overflow-hidden rounded-md group-data-[collapsible=icon]:flex hidden items-center justify-center">
+      {/* Collapsed Sidebar Mode: Clean circular emblem crop */}
+      <div className="relative size-8 shrink-0 overflow-hidden rounded-full group-data-[collapsible=icon]:flex hidden items-center justify-center">
         <img
-          src="/SIMKITA.png"
-          alt="SIMKITA AirNav Indonesia"
-          className="h-8 w-auto object-contain"
+          src="/airnav-logo.png"
+          alt="AirNav Indonesia"
+          className="absolute left-0 top-0 h-8 w-auto max-w-none object-cover object-left"
         />
       </div>
 
-      {/* Expanded Sidebar Mode: Landscape SIMKITA Logo */}
+      {/* Expanded Sidebar Mode: Official Landscape Logo cleanly constrained */}
       <div className="flex items-center gap-2 min-w-0 group-data-[collapsible=icon]:hidden">
         <img
-          src="/SIMKITA.png"
-          alt="SIMKITA AirNav Indonesia"
-          className="h-8 w-auto max-w-[160px] shrink-0 object-contain"
+          src="/airnav-logo.png"
+          alt="AirNav Indonesia"
+          className="h-7 w-auto max-w-[145px] shrink-0 object-contain"
         />
       </div>
     </div>
