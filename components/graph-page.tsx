@@ -1191,16 +1191,10 @@ if (dangerL5 !== null) {
         <SummaryCard
           icon={Activity}
           label="Arus"
-          value={getMetricValue(
-            currentStats.latest,
-            2,
-            " A",
-          )}
+          value="--"
           description="Sensor belum tersedia"
           color="violet"
-          available={
-            currentStats.hasData
-          }
+          available={false}
         />
       </section>
 
