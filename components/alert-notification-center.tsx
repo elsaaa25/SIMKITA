@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import {
   playAlertSound,
@@ -179,6 +179,7 @@ function clearDangerSoundState() {
 
 function showBrowserNotification(
   alert: ActiveAlert,
+  onNavigate?: () => void,
 ): boolean {
   if (
     typeof Notification === "undefined" ||
@@ -202,7 +203,11 @@ function showBrowserNotification(
 
   notification.onclick = () => {
     window.focus()
-    window.location.href = "/peringatan"
+    if (onNavigate) {
+      onNavigate()
+    } else {
+      window.location.assign("/peringatan")
+    }
     notification.close()
   }
 
@@ -211,6 +216,7 @@ function showBrowserNotification(
 
 export function AlertNotificationCenter() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const [settings, setSettings] =
     useState<MonitoringSettings>(
@@ -338,7 +344,7 @@ export function AlertNotificationCenter() {
           if (
             settings.browserNotification
           ) {
-            showBrowserNotification(alert)
+            showBrowserNotification(alert, () => router.push("/peringatan"))
           }
 
           /*

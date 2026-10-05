@@ -79,42 +79,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Setiap request: validasi session_version dari DB agar
       // sesi lama otomatis invalid setelah password diubah.
       if (typeof token.sub === "string") {
-        const result = await db.query<{
-          name: string
-          session_version: number
-          must_change_password: boolean
-        }>(
-          `
-            SELECT
-              name,
-              session_version,
-              must_change_password
-            FROM users
-            WHERE id = $1
-              AND is_active = TRUE
-            LIMIT 1
-          `,
-          [token.sub],
-        )
-
-        const currentUser = result.rows[0]
-
-        if (!currentUser) {
-          // Akun tidak aktif — invalidate token.
-          token.sessionVersion = -1
-        } else if (
-          Number(currentUser.session_version) !==
-          Number(token.sessionVersion)
-        ) {
-          // session_version berubah (misal: setelah ganti password).
-          // Invalidate token agar user wajib login ulang.
-          token.sessionVersion = -1
-        } else {
-          // Refresh data terbaru.
-          token.name = currentUser.name
-          token.mustChangePassword = Boolean(
-            currentUser.must_change_password,
+        try {
+          const result = await db.query<{
+            name: string
+            session_version: number
+            must_change_password: boolean
+          }>(
+            `
+              SELECT
+                name,
+                session_version,
+                must_change_password
+              FROM users
+              WHERE id = $1
+                AND is_active = TRUE
+              LIMIT 1
+            `,
+            [token.sub],
           )
+
+          const currentUser = result.rows[0]
+
+          if (!currentUser) {
+            // Akun tidak aktif / terhapus — invalidate token.
+            token.sessionVersion = -1
+          } else if (
+            token.sessionVersion !== undefined &&
+            token.sessionVersion !== null &&
+            Number(currentUser.session_version) !== Number(token.sessionVersion)
+          ) {
+            // session_version berubah (misal: setelah ganti password).
+            // Invalidate token agar user wajib login ulang.
+            token.sessionVersion = -1
+          } else {
+            // Refresh data terbaru dan pastikan sessionVersion terisi.
+            if (token.sessionVersion === undefined || token.sessionVersion === null) {
+              token.sessionVersion = Number(currentUser.session_version)
+            }
+            token.name = currentUser.name
+            token.mustChangePassword = Boolean(
+              currentUser.must_change_password,
+            )
+          }
+        } catch (error) {
+          // Jika DB error/timeout sementara, pertahankan sesi yang ada agar user tidak ter-logout.
+          console.error("Gagal verifikasi sesi DB saat navigasi:", error)
         }
       }
 
