@@ -50,15 +50,14 @@ export function SettingsPage() {
       type: "success" | "error" | "info"
       message: string
     } | null>(null)
-  const [permission, setPermission] =
-    useState<PermissionState>("default")
+  const [permission, setPermission] = useState<PermissionState>(() => {
+    if (typeof window === "undefined" || typeof Notification === "undefined") {
+      return "unsupported"
+    }
+    return Notification.permission
+  })
 
   useEffect(() => {
-    if (typeof Notification === "undefined") {
-      setPermission("unsupported")
-    } else {
-      setPermission(Notification.permission)
-    }
 
     const loadSettings = async () => {
       try {

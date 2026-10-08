@@ -88,11 +88,13 @@ export function HistoryPage() {
     }
   }, [date, search])
 
-  // Triger fetch ketika parameter berubah
   useEffect(() => {
     fetchHistoryData()
-    setPage(1) // Reset ke halaman pertama saat filter berubah
   }, [fetchHistoryData])
+
+  useEffect(() => {
+    setPage(1)
+  }, [date, search, statusFilter])
 
   const getStatus = (temperature: number, sensorId: string): Status => {
     const isL5 = sensorId === "TEMP-L5"
@@ -205,7 +207,7 @@ export function HistoryPage() {
                     { value: "Bahaya", label: "Bahaya" },
                   ]}
                   value={statusFilter}
-                  onValueChange={(val) => setFilter(val as any)}
+                  onValueChange={(val) => setFilter(val as Status | "Semua")}
                   indicatorId="history-status-tabs"
                 />
               </div>
@@ -306,7 +308,7 @@ export function HistoryPage() {
   )
 }
 
-function Summary({ icon: Icon, label, value, color }: { icon: any, label: string, value: number, color: "slate" | "green" | "amber" | "rose" }) {
+function Summary({ icon: Icon, label, value, color }: { icon: React.ComponentType<{ className?: string }>, label: string, value: number, color: "slate" | "green" | "amber" | "rose" }) {
   const styles = {
     slate: "bg-muted text-muted-foreground",
     green: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",

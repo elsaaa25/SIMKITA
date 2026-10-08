@@ -38,11 +38,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+
 
 type Period = "1" | "6" | "24" | "168"
 
@@ -769,6 +765,10 @@ if (dangerL5 !== null) {
     danger,
   )
 }
+
+if (refresh !== null) {
+  setRefreshSeconds(refresh)
+}
       } catch (settingsError) {
         console.error(
           "Gagal mengambil pengaturan grafik:",
@@ -1015,15 +1015,7 @@ if (dangerL5 !== null) {
       [data],
     )
 
-  const currentStats =
-    useMemo(
-      () =>
-        calculateMetricStats(
-          data,
-          "current",
-        ),
-      [data],
-    )
+
 
   const selectedDate =
     data.length > 0

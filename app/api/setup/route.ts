@@ -75,8 +75,9 @@ export async function GET() {
       </html>`,
       { headers: { "Content-Type": "text/html" } }
     )
-  } catch (error: any) {
-    return new NextResponse(`Error: ${error.message}`, { status: 500 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return new NextResponse(`Error: ${message}`, { status: 500 })
   }
 }
 
@@ -132,7 +133,8 @@ export async function POST(request: Request) {
       </html>`,
       { headers: { "Content-Type": "text/html" } }
     )
-  } catch (error: any) {
-    return NextResponse.json({ error: "Gagal membuat user admin", details: error.message }, { status: 500 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: "Gagal membuat user admin", details: message }, { status: 500 })
   }
 }

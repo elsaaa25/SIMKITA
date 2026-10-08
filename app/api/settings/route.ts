@@ -30,9 +30,10 @@ export async function GET() {
       success: true,
       data: result.rows[0]
     })
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error("Gagal mengambil pengaturan dari database:", error)
-    return NextResponse.json({ error: "Gagal mengambil data", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Gagal mengambil data", details: message }, { status: 500 })
   }
 }
 
@@ -125,8 +126,9 @@ export async function POST(request: Request) {
       success: true,
       message: "Pengaturan berhasil disimpan ke database"
     })
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error("Gagal menyimpan pengaturan ke database:", error)
-    return NextResponse.json({ error: "Gagal menyimpan data", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Gagal menyimpan data", details: message }, { status: 500 })
   }
 }

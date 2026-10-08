@@ -7,39 +7,22 @@ import {
   useRef,
   useState,
   type ComponentType,
-  type FormEvent,
 } from "react"
 import Link from "next/link"
 
-import {
-  signOut,
-} from "next-auth/react"
 import { cn } from "@/lib/utils"
 import {
   Activity,
-  CalendarDays,
-  CheckCircle2,
   CircleAlert,
   Cpu,
-  Database,
   LayoutGrid,
-  Menu,
   Radio,
   Server,
   ShieldCheck,
   Thermometer,
-  TrendingDown,
   TrendingUp,
   Zap,
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  History,
   LoaderCircle,
-  LogOut,
-  Pencil,
-  Settings,
-  UserRound,
   X,
 } from "lucide-react"
 import {
@@ -59,21 +42,13 @@ import { AppShell } from "@/components/app-shell"
 import { UnderlineTabs } from "@/components/shadcn-space/tabs/tabs-05"
 import { AnimatedTabs, AnimatedTabsNoIcon } from "@/components/shadcn-space/tabs/tabs-08"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-  SheetHeader,
-  SheetTrigger,
-} from "@/components/ui/sheet"
 import {
   Table,
   TableBody,
@@ -83,15 +58,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import {
   defaultMonitoringSettings,
   type MonitoringSettings,
 } from "@/lib/monitoring-settings"
-import { Input } from "@/components/ui/input"
 
 type Floor = "4" | "5"
 type Period = "1" | "6" | "24"
@@ -108,9 +77,7 @@ const FLOOR_CHART_METRICS: Record<Floor, ChartMetric[]> = {
   "5": ["suhu"],
 }
 
-const VOLTAGE_MINIMUM = 200
 const VOLTAGE_TARGET = 220
-const VOLTAGE_MAXIMUM = 240
 const CURRENT_CAPACITY = 25
 
 type RawReading = {
@@ -228,32 +195,7 @@ function clock(
   ).format(date)
 }
 
-function chartAxisTime(
-  value: string | number | Date,
-  period: Period,
-): string {
-  const date = new Date(value)
 
-  if (Number.isNaN(date.getTime())) {
-    return "-"
-  }
-
-  if (period === "24") {
-    return new Intl.DateTimeFormat(
-      "id-ID",
-      {
-        timeZone: "Asia/Jakarta",
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23",
-      },
-    ).format(date)
-  }
-
-  return clock(date)
-}
 
 function fullDate(
   value: string | Date,
@@ -1268,12 +1210,8 @@ export function Dashboard() {
   const powerKwL4 = voltageL4 !== null && currentL4 !== null ? (voltageL4 * currentL4) / 1000 : null
   const loadPercentageL4 = currentL4 !== null ? Math.min(Math.round((currentL4 / CURRENT_CAPACITY) * 100), 100) : null
 
-  // Dipertahankan hanya untuk blok grafik lama yang sudah disembunyikan.
-  // Kapabilitas UI aktif Lantai 5 tetap hanya suhu.
   const voltageL5 = onlineL5 && readingL5?.voltage !== null && readingL5?.voltage !== undefined ? Number(readingL5.voltage) : null
   const currentL5 = onlineL5 && readingL5?.current !== null && readingL5?.current !== undefined ? Number(readingL5.current) : null
-  const powerKwL5 = voltageL5 !== null && currentL5 !== null ? (voltageL5 * currentL5) / 1000 : null
-  const loadPercentageL5 = currentL5 !== null ? Math.min(Math.round((currentL5 / CURRENT_CAPACITY) * 100), 100) : null
 
   const chartData = useMemo(() => {
     const hoursLimit = periodConfigs[period].hours
@@ -3672,376 +3610,6 @@ function MetricStatistics02({ items }: { items: MetricItemData[] }) {
   )
 }
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  valueClassName = "text-emerald-600 dark:text-emerald-400",
-  iconColor = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-}: {
-  icon: ComponentType<{
-    className?: string
-  }>
-  label: string
-  value: string
-  detail: string
-  valueClassName?: string
-  iconColor?: string
-}) {
-  return (
-    <Card className="border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-all dark:border-slate-800 dark:bg-slate-900 rounded-2xl overflow-hidden">
-      <CardContent className="flex items-center gap-3.5 p-4 min-h-[92px]">
-        <div
-          className={`grid size-11 shrink-0 place-items-center rounded-xl transition-colors ${iconColor}`}
-        >
-          <Icon className="size-5" />
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
-            {label}
-          </p>
 
-          <p
-            className={`truncate text-2xl font-extrabold tracking-tight ${valueClassName}`}
-          >
-            {value}
-          </p>
 
-          <p className="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate">
-            {detail}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function Limit({
-  color,
-  label,
-  value,
-}: {
-  color: string
-  label: string
-  value: string
-}) {
-  return (
-    <div className="flex items-center rounded-xl border px-3 py-3 text-xs font-semibold">
-      <span
-        className={`mr-3 size-2 rounded-full ${color}`}
-      />
-
-      <span className="text-muted-foreground">
-        {label}
-      </span>
-
-      <b className="ml-auto text-foreground">
-        {value}
-      </b>
-    </div>
-  )
-}
-
-function SummaryRow({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: ComponentType<{
-    className?: string
-  }>
-  label: string
-  value: string
-  color: string
-}) {
-  return (
-    <div className="flex items-center gap-4 py-3">
-      <span
-        className={`grid size-11 place-items-center rounded-full ${color}`}
-      >
-        <Icon className="size-5" />
-      </span>
-
-      <span>
-        <small className="block text-[11px] font-medium leading-tight text-muted-foreground">
-          {label}
-        </small>
-
-        <b className="block text-base font-bold text-foreground">
-          {value}
-        </b>
-      </span>
-    </div>
-  )
-}
-
-function SystemRow({
-  icon: Icon,
-  label,
-  online = true,
-}: {
-  icon: ComponentType<{
-    className?: string
-  }>
-  label: string
-  online?: boolean
-}) {
-  return (
-    <div className="flex items-center py-3 text-xs font-semibold">
-      <Icon
-        className={`mr-2 size-4 ${online
-          ? "text-emerald-600 dark:text-emerald-400"
-          : "text-rose-600 dark:text-rose-400"
-          }`}
-      />
-
-      <span className="text-muted-foreground">
-        {label}
-      </span>
-
-      <span
-        className={`ml-auto ${online
-          ? "text-emerald-600 dark:text-emerald-400"
-          : "text-rose-600 dark:text-rose-400"
-          }`}
-      >
-        {online
-          ? "Online"
-          : "Offline"}
-      </span>
-    </div>
-  )
-}
-
-type ProfileData = {
-  id: string
-  name: string
-  email: string
-  role: string
-}
-
-type ProfileApiResponse = {
-  success?: boolean
-  message?: string
-  data?: ProfileData
-}
-
-function normalizeProfileName(
-  value: string,
-): string {
-  return value
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function ProfilePanel() {
-  const [profile, setProfile] =
-    useState<ProfileData | null>(null)
-
-  const [loading, setLoading] =
-    useState(true)
-
-  const loadProfile =
-    useCallback(async () => {
-      setLoading(true)
-
-      try {
-        const response = await fetch(
-          "/api/account/profile",
-          {
-            cache: "no-store",
-          },
-        )
-
-        const result =
-          (await response.json()) as
-          ProfileApiResponse
-
-        if (
-          !response.ok ||
-          !result.success ||
-          !result.data
-        ) {
-          throw new Error(
-            result.message ??
-            "Gagal mengambil profil.",
-          )
-        }
-
-        setProfile(result.data)
-      } catch (error) {
-        console.error(
-          "Gagal mengambil profil pengguna:",
-          error,
-        )
-      } finally {
-        setLoading(false)
-      }
-    }, [])
-
-  useEffect(() => {
-    void loadProfile()
-  }, [loadProfile])
-
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 gap-2 rounded-xl px-3"
-        >
-          <UserRound className="size-4" />
-
-          <span className="hidden max-w-44 truncate sm:inline">
-            {loading
-              ? "Memuat..."
-              : profile?.name ??
-              "Pengguna"}
-          </span>
-
-          <ChevronDown className="size-4 text-muted-foreground" />
-        </Button>
-      </SheetTrigger>
-
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col p-0 sm:max-w-[420px]"
-      >
-        <SheetHeader className="border-b px-6 py-5 text-left">
-          <SheetTitle className="text-xl font-semibold">
-            Profil pengguna
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex min-h-72 items-center justify-center">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <LoaderCircle className="size-5 animate-spin" />
-
-                Memuat profil...
-              </div>
-            </div>
-          ) : profile ? (
-            <>
-              {/* Informasi pengguna */}
-              <div className="px-5 pt-5">
-                <div className="flex items-center gap-4 rounded-2xl bg-muted/70 p-5">
-                  <div className="grid size-14 shrink-0 place-items-center rounded-full bg-background shadow-sm">
-                    <UserRound className="size-7 text-muted-foreground" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold">
-                      {profile.name}
-                    </h3>
-
-                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                      {profile.email}
-                    </p>
-
-                    <Badge
-                      className={
-                        profile.role === "ADMIN"
-                          ? "mt-2 bg-primary text-primary-foreground hover:bg-primary"
-                          : "mt-2 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
-                      }
-                    >
-                      {profile.role === "ADMIN"
-                        ? "Administrator"
-                        : "Operator"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Menu profil */}
-              <nav className="mt-5 px-3">
-                <ProfileMenuItem
-                  href="/profil"
-                  icon={Pencil}
-                  label="Edit profil"
-                />
-
-                {profile.role === "ADMIN" && (
-                  <ProfileMenuItem
-                    href="/pengaturan"
-                    icon={Settings}
-                    label="Pengaturan sistem"
-                  />
-                )}
-
-                <ProfileMenuItem
-                  href="/riwayat"
-                  icon={History}
-                  label="Riwayat monitoring"
-                />
-
-                <ProfileMenuItem
-                  href="/peringatan"
-                  icon={Bell}
-                  label="Pusat peringatan"
-                />
-              </nav>
-            </>
-          ) : (
-            <div className="m-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
-              Profil pengguna tidak dapat dimuat.
-            </div>
-          )}
-        </div>
-
-        {/* Tombol logout */}
-        <div className="border-t p-5">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-12 w-full gap-3 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900 dark:hover:bg-rose-950/30"
-            onClick={() =>
-              signOut({
-                callbackUrl: "/login",
-              })
-            }
-          >
-            <LogOut className="size-5" />
-
-            Keluar
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
-function ProfileMenuItem({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string
-  icon: React.ComponentType<{
-    className?: string
-  }>
-  label: string
-}) {
-  return (
-    <SheetClose asChild>
-      <Link
-        href={href}
-        className="group flex min-h-16 items-center gap-4 rounded-xl px-4 text-sm font-medium transition-colors hover:bg-muted"
-      >
-        <Icon className="size-6 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-
-        <span className="flex-1">
-          {label}
-        </span>
-
-        <ChevronRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-      </Link>
-    </SheetClose>
-  )
-}
