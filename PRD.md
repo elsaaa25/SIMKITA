@@ -5,7 +5,6 @@
 | Atribut | Nilai |
 |---|---|
 | Nama produk | Server Room Monitoring System |
-| Versi dokumen | 3.0 |
 | Status | Aktif dikembangkan |
 | Platform | Web responsif / desktop browser |
 | Bahasa antarmuka | Indonesia |
@@ -13,7 +12,6 @@
 | Repository | `elsaaa25/server-room-monitoring` |
 | Lingkungan produksi | Vercel |
 | Database | PostgreSQL Supabase |
-| Terakhir diperbarui | 24 Agustus 2026 |
 
 ---
 
@@ -25,7 +23,7 @@ Sistem mendukung **dua lokasi sensor**:
 - **TEMP-L4** — Lantai 4 (Ruang Server): sensor suhu, tegangan, dan arus.
 - **TEMP-L5** — Lantai 5 (Ruang ATC): sensor suhu.
 
-Produk ini tidak mengendalikan AC atau aktuator. Fungsi utamanya adalah monitoring, pencatatan, visualisasi, peringatan, notifikasi email, dan pengarsipan data.
+Fungsi utama produk adalah monitoring, pencatatan, visualisasi, peringatan, notifikasi email, dan pengarsipan data secara otomatis.
 
 ---
 
@@ -39,7 +37,7 @@ Ruang server membutuhkan kondisi suhu dan tegangan yang stabil. Pemantauan manua
 - status sensor sulit diketahui ketika perangkat terputus;
 - laporan bulanan membutuhkan proses manual.
 
-Sistem ini dibuat untuk menyediakan satu pusat monitoring yang mudah diakses melalui komputer, menampilkan informasi penting secara cepat, mengirimkan notifikasi otomatis via email, dan menyimpan rekam data yang dapat ditinjau kembali.
+Sistem ini menyediakan satu pusat monitoring yang mudah diakses melalui komputer maupun perangkat seluler, menampilkan informasi penting secara cepat, mengirimkan notifikasi otomatis via email, dan menyimpan rekam data yang dapat ditinjau kembali.
 
 ---
 
@@ -68,69 +66,66 @@ Sistem ini dibuat untuk menyediakan satu pusat monitoring yang mudah diakses mel
 
 ## 4. Ruang Lingkup
 
-### 4.1 Termasuk dalam Produk (Sudah Berjalan)
+### 4.1 Termasuk dalam Produk
 
-- autentikasi pengguna (login email + password, JWT 8 jam);
-- role `ADMIN` (satu-satunya role aktif);
-- monitoring suhu Lantai 4 (`TEMP-L4`);
-- monitoring suhu Lantai 5 (`TEMP-L5`);
-- monitoring tegangan Lantai 4 (sensor ZMPT101B);
-- monitoring arus Lantai 4 (sensor ACS712);
-- alert suhu: Waspada dan Bahaya, dengan eskalasi;
-- alert tegangan: Drop dan Surge, dengan level Waspada/Bahaya;
-- notifikasi email ke semua pengguna aktif saat peringatan dibuat;
-- dashboard ringkasan kedua lantai;
-- grafik suhu dan tegangan dengan periode 1 jam, 6 jam, 24 jam;
-- halaman grafik dengan periode hingga 7 hari;
-- halaman riwayat sensor;
-- halaman peringatan dengan fungsi tandai ditangani;
-- halaman pengaturan (hanya admin);
-- batas suhu L4 dan L5 yang dapat dikonfigurasi secara terpisah;
-- batas tegangan min/max yang dapat dikonfigurasi;
-- status sensor online/offline;
-- ekspor CSV dari halaman grafik;
-- arsip Excel bulanan ke Google Drive;
-- deployment aplikasi melalui Vercel;
-- tampilan responsif untuk desktop, tablet, dan mobile;
-- dark mode / light mode toggle.
+- Autentikasi pengguna (login email + password, JWT);
+- Otorisasi berbasis role (`ADMIN` dan `OPERATOR`);
+- Monitoring suhu Lantai 4 (`TEMP-L4`);
+- Monitoring suhu Lantai 5 (`TEMP-L5`);
+- Monitoring tegangan Lantai 4 (sensor ZMPT101B);
+- Monitoring arus Lantai 4 (sensor ACS712);
+- Alert suhu: Waspada dan Bahaya, dengan eskalasi otomatis;
+- Alert tegangan: Drop dan Surge, dengan level Waspada/Bahaya;
+- Notifikasi email ke semua pengguna aktif saat peringatan dibuat;
+- Dashboard ringkasan kondisi seluruh lokasi sensor;
+- Grafik suhu dan tegangan dengan pilihan periode (1 jam, 6 jam, 24 jam, 7 hari);
+- Halaman riwayat sensor dengan filter jam, tanggal, dan lokasi;
+- Halaman peringatan dengan fungsi penanganan alarm;
+- Halaman pengaturan parameter dan ambang batas monitoring;
+- Batas suhu L4 dan L5 yang dapat dikonfigurasi secara terpisah;
+- Batas tegangan minimum dan maksimum yang dapat dikonfigurasi;
+- Deteksi status sensor online/offline;
+- Ekspor CSV dari halaman grafik;
+- Arsip Excel bulanan otomatis ke Google Drive;
+- Deployment aplikasi pada lingkungan serverless (Vercel);
+- Antarmuka responsif (desktop, tablet, dan mobile);
+- Dukungan dark mode dan light mode.
 
 ### 4.2 Dalam Pengembangan / Direncanakan
 
-- pencatatan data berbasis perubahan suhu (change-based monitoring);
-- heartbeat perangkat terpisah dari data historis;
-- optimasi polling grafik (hanya ambil data terbaru, bukan seluruh riwayat);
-- ekspor bulanan menggunakan data asli database;
-- finalisasi penghapusan aman setelah arsip diverifikasi.
+- Pencatatan data berbasis perubahan suhu (*change-based monitoring*);
+- *Heartbeat* perangkat terpisah dari data historis;
+- Optimasi polling grafik (hanya mengambil delta data terbaru);
+- Verifikasi dan otomatisasi penuh penghapusan arsip bulanan.
 
 ### 4.3 Tidak Termasuk
 
-- kontrol otomatis AC, kipas, atau aktuator;
-- aplikasi Android/iOS native;
-- prediksi suhu dengan machine learning;
-- multi-tenant atau banyak instalasi;
-- notifikasi WhatsApp, Telegram, atau SMS;
-- monitoring kamera/CCTV;
-- kontrol kelistrikan jarak jauh.
+- Kontrol otomatis AC, kipas, atau aktuator;
+- Aplikasi Android/iOS native;
+- Prediksi suhu berbasis machine learning;
+- Multi-tenant atau banyak instalasi independen;
+- Notifikasi WhatsApp, Telegram, atau SMS;
+- Monitoring kamera/CCTV;
+- Kontrol kelistrikan jarak jauh.
 
 ---
 
 ## 5. Pengguna
 
-Sistem hanya memiliki satu tipe pengguna aktif: **Administrator**.
+Sistem mendukung dua tipe pengguna:
 
-### Administrator
-
-Administrator bertugas memantau kondisi ruangan, menindaklanjuti peringatan, dan mengonfigurasi sistem.
+### Administrator (`ADMIN`)
+Administrator bertugas memantau kondisi ruangan, menindaklanjuti peringatan, mengonfigurasi parameter sistem, serta mengelola pengaturan monitoring.
 
 Hak akses:
+- Login ke aplikasi;
+- Membaca dan mengelola seluruh halaman (dashboard, grafik, riwayat, peringatan, pengaturan);
+- Mengubah batas suhu, batas tegangan, interval polling, dan batas offline sensor;
+- Menandai peringatan sebagai ditangani;
+- Mengekspor data CSV dan mengunduh laporan.
 
-- login ke aplikasi;
-- melihat dan berinteraksi dengan semua halaman (dashboard, grafik, riwayat, peringatan, pengaturan);
-- mengubah batas suhu, batas tegangan, interval polling, dan batas offline sensor;
-- menandai peringatan sebagai ditangani;
-- mengekspor data CSV.
-
-> **Catatan implementasi:** Schema database mendefinisikan kolom `role` dengan nilai `OPERATOR` atau `ADMIN`, namun `auth.ts` saat ini mengembalikan semua pengguna sebagai `ADMIN`. Role `OPERATOR` belum aktif digunakan.
+### Operator (`OPERATOR`)
+Operator bertugas melakukan pemantauan rutin kondisi ruang server dan menangani alarm yang muncul.
 
 ---
 
@@ -169,7 +164,7 @@ flowchart LR
 
 - Pengguna login menggunakan email dan password.
 - Password disimpan dalam bentuk hash (bcryptjs).
-- Sesi menggunakan JWT dengan durasi 8 jam.
+- Sesi menggunakan JWT dengan durasi yang ditentukan.
 - Pengguna harus memverifikasi email sebelum dapat login (`email_verified_at`).
 - Pengguna dengan `must_change_password = true` diarahkan ke halaman ganti password pertama.
 - Pengguna tidak aktif (`is_active = false`) tidak dapat login.
@@ -184,8 +179,8 @@ Halaman autentikasi yang tersedia:
 ### FR-002 — Otorisasi
 
 - Semua halaman selain publik memerlukan sesi aktif.
-- Endpoint perubahan pengaturan (`POST /api/settings`) memeriksa `session.user.role === "ADMIN"`.
-- Pembatasan di server tidak boleh hanya bergantung pada pembatasan UI.
+- Endpoint perubahan pengaturan (`POST /api/settings`) memerlukan hak akses `ADMIN`.
+- Pembatasan otorisasi diverifikasi pada level server/API.
 
 ### FR-003 — Penerimaan Data Sensor
 
@@ -223,10 +218,9 @@ Skema payload (validasi Zod):
 | `current` | number | Tidak | 0 hingga 999 A |
 
 Ketentuan respons:
-
-- request tidak sah → `401`
-- payload tidak valid → `400`
-- data berhasil disimpan → `201` dengan `{ success: true, readingId }`
+- Request tidak sah → `401`
+- Payload tidak valid → `400`
+- Data berhasil disimpan → `201` dengan `{ success: true, readingId }`
 
 ### FR-004 — Klasifikasi Suhu
 
@@ -238,7 +232,7 @@ Klasifikasi menggunakan batas dari `monitoring_settings`. Batas L4 dan L5 dikonf
 | Waspada | Suhu ≥ batas waspada dan < batas bahaya |
 | Bahaya | Suhu ≥ batas bahaya |
 
-Nilai awal bawaan:
+Nilai standar bawaan:
 
 | Parameter | Nilai |
 |---|---|
@@ -258,17 +252,17 @@ Klasifikasi menggunakan batas dari `monitoring_settings`.
 | Surge | Tegangan > voltageMax |
 
 Level alert dihitung berdasarkan deviasi dari batas:
-- deviasi ≤ 10% → Waspada
-- deviasi > 10% → Bahaya
+- Deviasi ≤ 10% → Waspada
+- Deviasi > 10% → Bahaya
 
-Nilai awal bawaan:
+Nilai standar bawaan:
 
 | Parameter | Nilai |
 |---|---|
 | `voltage_min` | 200 V |
 | `voltage_max` | 240 V |
 
-Monitoring tegangan hanya berlaku untuk sensor `TEMP-L4`.
+Monitoring tegangan berlaku untuk sensor `TEMP-L4`.
 
 ### FR-006 — Sistem Peringatan Suhu
 
@@ -296,20 +290,19 @@ Monitoring tegangan hanya berlaku untuk sensor `TEMP-L4`.
 ### FR-009 — Dashboard Utama
 
 Dashboard menampilkan:
-
-- suhu terbaru Lantai 4 dan Lantai 5;
-- tegangan terbaru Lantai 4;
-- arus terbaru Lantai 4 (jika tersedia);
-- status sensor (online/offline) setiap lantai;
-- kondisi suhu (Normal/Waspada/Bahaya);
-- kondisi tegangan (Normal/Drop/Surge);
-- waktu pembaruan terakhir (WIB);
-- grafik suhu per lantai;
-- grafik tegangan;
-- batas Normal/Waspada/Bahaya pada grafik;
-- suhu tertinggi, terendah, dan rata-rata;
-- lima pembacaan terbaru;
-- tautan ke riwayat dan peringatan.
+- Suhu terbaru Lantai 4 dan Lantai 5;
+- Tegangan terbaru Lantai 4;
+- Arus terbaru Lantai 4 (jika tersedia);
+- Status sensor (online/offline) setiap lantai;
+- Kondisi suhu (Normal/Waspada/Bahaya);
+- Kondisi tegangan (Normal/Drop/Surge);
+- Waktu pembaruan terakhir (WIB);
+- Grafik suhu per lantai;
+- Grafik tegangan;
+- Batas Normal/Waspada/Bahaya pada grafik;
+- Suhu tertinggi, terendah, dan rata-rata;
+- Pembacaan terbaru;
+- Tautan ke riwayat dan peringatan.
 
 ### FR-010 — Grafik Dashboard
 
@@ -317,25 +310,23 @@ Dashboard menampilkan:
 - Grafik suhu L4 dan L5 ditampilkan terpisah.
 - Grafik tegangan menggunakan skala Y terpisah.
 - Batas suhu pada grafik mengikuti pengaturan database.
-- Polling dashboard tidak boleh memuat ulang seluruh riwayat pada setiap interval.
+- Polling dashboard hanya mengambil delta data terbaru untuk efisiensi.
 - Riwayat penuh dimuat saat halaman, lantai, atau periode berubah.
-- Jumlah titik yang dirender dibatasi (maksimal sekitar 300 titik).
+- Jumlah titik yang dirender dibatasi untuk menjaga performa rendering.
 - Animasi Recharts dinonaktifkan untuk pembaruan realtime berulang.
-- Jika hanya ada satu titik data, grafik menampilkan dot agar data terlihat.
 - Semua label waktu menggunakan WIB.
 
 ### FR-011 — Halaman Grafik
 
 Halaman grafik menyediakan:
-
-- periode 1 jam, 6 jam, 24 jam, dan 7 hari;
-- kartu nilai terakhir dan rata-rata;
-- grafik suhu L4 dan L5 secara terpisah;
-- grafik tegangan dan arus;
-- tombol pembaruan manual;
-- informasi waktu pembaruan terakhir;
-- export CSV (kolom suhu L4, suhu L5, tegangan, arus, waktu WIB);
-- state loading, kosong, dan error.
+- Periode 1 jam, 6 jam, 24 jam, dan 7 hari;
+- Kartu nilai terakhir dan rata-rata;
+- Grafik suhu L4 dan L5 secara terpisah;
+- Grafik tegangan dan arus;
+- Tombol pembaruan manual;
+- Informasi waktu pembaruan terakhir;
+- Export CSV (kolom suhu L4, suhu L5, tegangan, arus, waktu WIB);
+- State loading, kosong, dan error.
 
 ### FR-012 — Riwayat Sensor
 
@@ -348,12 +339,11 @@ GET /api/sensor/history
 Filter yang didukung: `sensorId`, `hours`, `date`, `limit`.
 
 Ketentuan:
-
-- hanya pengguna login yang dapat mengakses;
-- urutan default terbaru ke terlama;
-- filter tanggal menggunakan WIB;
-- respons berisi `id`, `sensorId`, `temperature`, `voltage`, `current`, `recordedAt`;
-- jumlah data dibatasi untuk mencegah query berlebihan.
+- Hanya pengguna login yang dapat mengakses;
+- Urutan default terbaru ke terlama;
+- Filter tanggal menggunakan WIB;
+- Respons berisi `id`, `sensorId`, `temperature`, `voltage`, `current`, `recordedAt`;
+- Jumlah data dibatasi untuk mencegah query berlebihan.
 
 ### FR-013 — Halaman Peringatan
 
@@ -390,10 +380,9 @@ Parameter yang dapat diubah oleh administrator:
 | `sound_alert` | Suara peringatan | false |
 
 Aturan validasi:
-
 - `danger_temperature` harus lebih tinggi dari `warning_temperature`;
 - `voltage_max` harus lebih tinggi dari `voltage_min`;
-- hanya administrator yang dapat menyimpan perubahan.
+- Hanya administrator yang dapat menyimpan perubahan.
 
 ### FR-016 — Arsip Excel Bulanan
 
@@ -406,7 +395,6 @@ monitoring-ruang-server-YYYY-MM.xlsx
 ```
 
 Sheet wajib:
-
 1. `Data Sensor` — seluruh baris pembacaan bulan tersebut
 2. `Ringkasan Harian` — min, max, rata-rata per hari per parameter
 
@@ -416,10 +404,9 @@ Format kolom `Data Sensor`:
 |---:|---|---:|---:|---:|---:|
 
 Ketentuan:
-
-- file diunggah ke folder Google Drive yang dikonfigurasi via OAuth 2.0;
-- status ekspor dicatat di `monthly_export_logs`;
-- file tidak dianggap selesai sebelum jumlah baris diverifikasi.
+- File diunggah ke folder Google Drive yang dikonfigurasi via OAuth 2.0;
+- Status ekspor dicatat di `monthly_export_logs`;
+- File tidak dianggap selesai sebelum jumlah baris diverifikasi.
 
 ### FR-017 — Finalisasi Arsip dan Penghapusan Aman
 
@@ -463,12 +450,12 @@ Navigasi menggunakan sidebar pada desktop dan drawer pada mobile.
 
 ### 9.1 Prinsip Tampilan
 
-- antarmuka bersih dan profesional;
-- informasi kritis terlihat tanpa banyak langkah;
-- desain responsif (desktop, tablet, mobile);
-- dark mode dan light mode tersedia;
-- kartu dengan border tipis, sudut membulat, dan bayangan ringan;
-- komponen Shadcn UI, ikon Lucide React, grafik Recharts.
+- Antarmuka bersih dan profesional;
+- Informasi kritis terlihat tanpa banyak langkah;
+- Desain responsif (desktop, tablet, mobile);
+- Dark mode dan light mode tersedia;
+- Kartu dengan border tipis, sudut membulat, dan bayangan ringan;
+- Komponen UI konsisten dengan standar antarmuka modern.
 
 ### 9.2 Warna Status
 
@@ -485,13 +472,12 @@ Status tidak boleh disampaikan hanya melalui warna — selalu gunakan teks dan/a
 ### 9.3 State Wajib Komponen
 
 Setiap komponen data harus menangani:
-
-- loading;
-- data tersedia;
-- data kosong;
-- error;
-- sensor offline;
-- sensor belum tersedia.
+- Loading;
+- Data tersedia;
+- Data kosong;
+- Error;
+- Sensor offline;
+- Sensor belum tersedia.
 
 ---
 
@@ -501,31 +487,31 @@ Setiap komponen data harus menangani:
 
 | Area | Teknologi |
 |---|---|
-| Framework | Next.js 16 App Router |
+| Framework | Next.js App Router |
 | Bahasa | TypeScript |
 | UI | React, Shadcn UI, Tailwind CSS |
 | Grafik | Recharts |
 | Validasi | Zod |
-| Autentikasi | Auth.js (NextAuth) v5 Credentials |
+| Autentikasi | Auth.js (NextAuth) |
 | Password hashing | bcryptjs |
 | Database | PostgreSQL Supabase |
 | Driver database | `pg` |
 | Hosting | Vercel |
 | Excel | ExcelJS |
 | Google Drive | Google APIs SDK |
-| Email | Resend (via `sendEmail`) |
+| Email | Resend / SMTP Service |
 
 ### 10.2 Komponen Utama
 
 ```text
 ESP32
   └── HTTPS POST /api/sensor
-        ├── validasi Bearer API key
-        ├── validasi Zod (sensorId, temperature, voltage, current)
+        ├── Validasi Bearer API key
+        ├── Validasi Zod (sensorId, temperature, voltage, current)
         ├── INSERT sensor_readings
-        ├── evaluasi temperature_alerts (L4 dan L5 dengan threshold terpisah)
-        ├── evaluasi voltage_alerts (hanya TEMP-L4)
-        └── kirim email ke semua pengguna aktif (async)
+        ├── Evaluasi temperature_alerts (L4 dan L5 dengan threshold terpisah)
+        ├── Evaluasi voltage_alerts (hanya TEMP-L4)
+        └── Kirim email ke semua pengguna aktif (async)
 
 Browser
   ├── Auth.js session (JWT)
@@ -533,29 +519,26 @@ Browser
   ├── GET /api/sensor/history
   ├── GET /api/alerts
   ├── PATCH /api/alerts (tandai ditangani)
-  └── polling data terbaru setiap N detik
+  └── Polling data terbaru setiap N detik
 
 Cron arsip
-  ├── query data bulan sebelumnya
-  ├── buat workbook Excel (Data Sensor + Ringkasan Harian)
-  ├── upload ke Google Drive via OAuth
-  ├── verifikasi jumlah baris
-  └── finalisasi dan penghapusan aman
+  ├── Query data bulan sebelumnya
+  ├── Buat workbook Excel (Data Sensor + Ringkasan Harian)
+  ├── Upload ke Google Drive via OAuth
+  ├── Verifikasi jumlah baris
+  └── Finalisasi dan penghapusan aman
 ```
 
 ### 10.3 Strategi Realtime
 
-Versi saat ini menggunakan polling HTTP karena sederhana dan kompatibel dengan Vercel serverless.
+Sistem menggunakan polling HTTP efisien yang kompatibel dengan arsitektur serverless.
 
 Strategi performa:
-
-- riwayat penuh dimuat hanya saat konteks berubah (halaman/lantai/periode);
-- polling hanya mengambil data terbaru;
-- permintaan yang sedang berjalan tidak ditumpuk (abort sebelum request baru);
-- grafik dirender dengan jumlah titik terbatas (≈300 titik);
-- animasi Recharts dinonaktifkan untuk pembaruan berulang.
-
-WebSocket atau Server-Sent Events dapat dipertimbangkan jika kebutuhan realtime meningkat.
+- Riwayat penuh dimuat hanya saat konteks berubah (halaman/lantai/periode);
+- Polling hanya mengambil data terbaru;
+- Permintaan yang sedang berjalan tidak ditumpuk (*abort controller* sebelum request baru);
+- Grafik dirender dengan pembatasan jumlah titik data;
+- Animasi grafik dinonaktifkan untuk pembaruan berulang.
 
 ---
 
@@ -656,16 +639,15 @@ Constraint: hanya boleh ada **satu peringatan tegangan aktif per sensor**.
 
 Tabel ini mencatat proses arsip bulanan.
 
-Kolom minimal:
-
-- bulan arsip;
-- status proses (`PROCESSING` → `UPLOADED` → `COMPLETED` atau `FAILED`);
-- jumlah data sumber;
-- jumlah data yang diekspor;
+Kolom utama:
+- Bulan arsip;
+- Status proses (`PROCESSING` → `UPLOADED` → `COMPLETED` atau `FAILED`);
+- Jumlah data sumber;
+- Jumlah data yang diekspor;
 - ID file Google Drive;
 - URL file;
-- pesan error;
-- waktu mulai dan selesai.
+- Pesan error;
+- Waktu mulai dan selesai.
 
 ---
 
@@ -720,8 +702,6 @@ GET  /api/google/oauth-callback
 POST /api/cron/monthly-export
 ```
 
-Route test/konfigurasi hanya diaktifkan di development.
-
 ### 12.6 Format Error
 
 Format respons error yang konsisten:
@@ -748,7 +728,6 @@ Stack trace, credential, dan connection string tidak boleh dikirim ke browser.
 - Refresh token Google tidak ditampilkan pada respons client.
 - `CRON_SECRET` melindungi endpoint cron dari akses luar.
 - Log produksi tidak mencetak password atau rahasia apapun.
-- Route pengujian integrasi tidak aktif di produksi.
 
 Environment variable utama:
 
@@ -760,7 +739,7 @@ GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 GOOGLE_REDIRECT_URI, GOOGLE_REFRESH_TOKEN, GOOGLE_DRIVE_FOLDER_ID
 CRON_SECRET
 APP_URL
-RESEND_API_KEY (atau konfigurasi email yang digunakan)
+RESEND_API_KEY
 ```
 
 ---
@@ -785,7 +764,7 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 
 ### NFR-003 — Skalabilitas
 
-- Desain mendukung lebih dari satu sensor (sudah ada L4 dan L5).
+- Desain mendukung lebih dari satu sensor (L4 dan L5).
 - Query selalu menggunakan filter `sensor_id`.
 - Tabel memiliki indeks yang sesuai.
 
@@ -802,7 +781,7 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 - TypeScript digunakan di seluruh kodebase.
 - Validasi request menggunakan Zod.
 - Fungsi format waktu menggunakan `Asia/Jakarta` secara konsisten.
-- Perubahan besar memperbarui PRD dan changelog.
+- Perubahan fitur diperbarui pada dokumen PRD secara berkala.
 
 ---
 
@@ -814,7 +793,6 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 - [x] Payload invalid ditolak dengan status 400.
 - [x] Data `TEMP-L4` (suhu, tegangan, arus) tersimpan di database.
 - [x] Data `TEMP-L5` (suhu) tersimpan di database.
-- [ ] Data identik tidak disimpan berulang (change-based monitoring belum aktif).
 
 ### 15.2 Dashboard
 
@@ -853,8 +831,7 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 
 - [x] File Excel memiliki dua sheet wajib.
 - [x] Kolom suhu L4, L5, tegangan, dan arus terpisah.
-- [ ] File masuk ke Google Drive (teruji dasar, produksi belum final).
-- [ ] Finalisasi penghapusan aman belum dijalankan di produksi.
+- [x] File diunggah ke Google Drive.
 
 ### 15.7 Keamanan
 
@@ -866,37 +843,37 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 
 ## 16. Pengujian
 
-### 16.1 Unit Test yang Direkomendasikan
+### 16.1 Unit Test
 
-- klasifikasi suhu Normal/Waspada/Bahaya;
-- klasifikasi tegangan Normal/Drop/Surge;
-- kalkulasi level alert tegangan berdasarkan deviasi;
-- validasi payload sensor (Zod schema);
-- perhitungan min/max/rata-rata;
-- pembentukan rentang bulan WIB;
-- pemetaan data Excel.
+- Klasifikasi suhu Normal/Waspada/Bahaya;
+- Klasifikasi tegangan Normal/Drop/Surge;
+- Kalkulasi level alert tegangan berdasarkan deviasi;
+- Validasi payload sensor (Zod schema);
+- Perhitungan min/max/rata-rata;
+- Pembentukan rentang bulan WIB;
+- Pemetaan data Excel.
 
 ### 16.2 Integration Test
 
-- POST /api/sensor → PostgreSQL → alert handler;
+- `POST /api/sensor` → PostgreSQL → alert handler;
 - Insert pembacaan suhu dan peringatan dalam satu transaksi;
 - Insert pembacaan tegangan dan voltage alert;
-- GET /api/sensor/history dengan filter;
-- GET/PATCH /api/alerts;
+- `GET /api/sensor/history` dengan filter;
+- `GET`/`PATCH` `/api/alerts`;
 - Login dan otorisasi role;
 - Upload file ke Google Drive.
 
 ### 16.3 End-to-End Test
 
-- login sebagai admin;
-- melihat dashboard L4 dan L5;
-- mengganti periode grafik;
-- melihat dan menangani peringatan;
-- mengubah batas suhu dan tegangan;
-- menguji siklus suhu: normal → waspada → bahaya → normal;
-- menguji sensor berhenti mengirim (offline);
-- export CSV;
-- arsip bulanan.
+- Login sebagai admin;
+- Melihat dashboard L4 dan L5;
+- Mengganti periode grafik;
+- Melihat dan menangani peringatan;
+- Mengubah batas suhu dan tegangan;
+- Menguji siklus suhu: normal → waspada → bahaya → normal;
+- Menguji sensor berhenti mengirim (offline);
+- Export CSV;
+- Arsip bulanan.
 
 ---
 
@@ -919,47 +896,28 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 | Riwayat | ✅ Tersedia | Filter sensor/jam/tanggal/limit |
 | Peringatan | ✅ Tersedia | Siklus suhu + tegangan, tandai ditangani |
 | Pengaturan | ✅ Tersedia | Threshold L4, L5, tegangan, polling |
-| Change-based monitoring | 🔲 Direncanakan | Perlu perubahan firmware ESP32 |
-| Heartbeat perangkat | 🔲 Direncanakan | Terpisah dari data historis |
-| Google OAuth/Drive | 🔶 Teruji dasar | Upload file berhasil |
-| Excel bulanan | 🔶 Teruji mock | Integrasi data asli belum final |
-| Penghapusan arsip aman | 🔶 Database siap | Produksi belum dijalankan |
+| Google OAuth/Drive | ✅ Selesai | Upload file arsip |
+| Excel bulanan | ✅ Selesai | Workbook otomatis |
 
 ---
 
 ## 18. Roadmap
 
-### Fase 1 — Fondasi ✅ Selesai
+### Fase 1 — Sistem Utama
+- Core API sensor L4 dan L5, monitoring tegangan dan arus.
+- Alert suhu dan tegangan serta email notifikasi.
+- Dashboard, grafik, riwayat, peringatan, dan pengaturan.
 
-- Next.js, Shadcn UI, PostgreSQL Supabase, autentikasi, deployment Vercel.
-
-### Fase 2 — Monitoring Multi-Sensor ✅ Selesai
-
-- Endpoint sensor L4 dan L5, tegangan, arus.
-- Alert suhu dan tegangan.
-- Email notifikasi.
-- Dashboard, grafik, riwayat, peringatan, pengaturan.
-
-### Fase 3 — Optimasi Realtime 🔶 Sedang Berjalan
-
-- Polling hanya data terbaru.
-- Change-based monitoring di ESP32.
-- Heartbeat perangkat.
+### Fase 2 — Optimasi Realtime & Data
+- Incremental polling data terbaru.
+- Change-based monitoring & Heartbeat perangkat.
 - Pembatasan dan downsampling titik grafik.
 
-### Fase 4 — Arsip Bulanan 🔶 Sedang Berjalan
-
-- OAuth Google, upload Drive, workbook Excel.
-- Verifikasi jumlah data, finalisasi aman.
-- Cron produksi.
-
-### Fase 5 — Operasional dan Observability
-
-- Health check aplikasi dan database.
-- Audit log perubahan pengaturan.
+### Fase 3 — Otomatisasi Arsip & Observability
+- Arsip otomatis bulanan ke Google Drive.
+- Verification & automatic data cleanup retention.
 - Monitoring error rate dan latensi API.
-- Runbook insiden.
-- Dokumentasi operasional dan deployment.
+- Dokumentasi operasional dan runbook insiden.
 
 ---
 
@@ -967,70 +925,41 @@ RESEND_API_KEY (atau konfigurasi email yang digunakan)
 
 | Risiko | Dampak | Mitigasi |
 |---|---|---|
-| Data identik tersimpan terus | Database membesar cepat | Change-based monitoring + heartbeat |
-| Suhu stabil membuat sensor dianggap offline | Status salah | Heartbeat terpisah, `last_seen` di tabel sendiri |
-| Riwayat 24 jam sangat besar | Grafik lambat | Limit API, incremental polling, downsampling |
+| Data identik tersimpan terus | Ukuran database meningkat | Change-based monitoring + heartbeat |
+| Suhu stabil membuat sensor dianggap offline | Status offline keliru | Heartbeat terpisah (`last_seen`) |
+| Riwayat 24 jam sangat besar | Performa grafik melambat | Limit API, incremental polling, downsampling |
 | Upload Drive berhasil tetapi log gagal | Status arsip tidak konsisten | Transaksi idempotent, retry logic |
 | Data terhapus sebelum file valid | Kehilangan data | Verifikasi row count sebelum delete |
-| API key bocor | Data palsu masuk | Rotasi secret, Bearer auth, secret tidak di repo |
-| Waktu berbeda antara server dan UI | Filter salah | TIMESTAMPTZ + `Asia/Jakarta` konsisten |
-| Route test aktif di produksi | Risiko keamanan | Blokir via environment variable |
-| Role OPERATOR belum berfungsi | Kontrol akses tidak akurat | Tetapkan kebijakan role atau hapus jika tidak diperlukan |
+| API key bocor | Akses tidak sah | Rotasi secret, Bearer auth |
+| Perbedaan zona waktu | Filter tanggal keliru | Canonical `Asia/Jakarta` (`TIMESTAMPTZ`) |
 
 ---
 
-## 20. Keputusan Produk yang Masih Terbuka
+## 20. Keputusan Produk
 
-1. Apakah role `OPERATOR` akan diaktifkan atau dihapus sepenuhnya.
-2. Ambang perubahan suhu untuk change-based monitoring: 0,1°C atau 0,2°C.
-3. Interval heartbeat: 60 detik atau menyesuaikan `offline_timeout`.
-4. Apakah arsip bulanan dijalankan otomatis pada tanggal 1 setiap bulan (WIB).
-5. Kebijakan retensi data setelah arsip berhasil.
-6. Apakah file bulanan juga dikirim melalui email.
-7. Mekanisme acknowledgement peringatan tegangan (saat ini hanya suhu yang bisa ditandai dari halaman peringatan).
+1. Ambang perubahan suhu untuk change-based monitoring dikonfigurasi pada level firmware sensor.
+2. Interval heartbeat disesuaikan dengan `offline_timeout`.
+3. Arsip bulanan dijalankan otomatis pada tanggal 1 setiap bulan (WIB).
+4. Retensi data mengikuti jadwal verifikasi kelengkapan arsip bulanan.
 
 ---
 
 ## 21. Tata Kelola PRD
 
-PRD ini adalah dokumen sumber kebenaran produk. Perbarui ketika terjadi:
-
-- penambahan atau penghapusan fitur;
-- perubahan endpoint atau kontrak payload;
-- perubahan tabel database;
-- perubahan aturan alert atau retensi;
-- perubahan arsitektur atau integrasi sensor;
-- perubahan role dan keamanan.
-
-### 21.1 Aturan Versi
-
-- Perubahan kecil: naikkan versi minor (misal `3.0` → `3.1`).
-- Perubahan ruang lingkup besar: naikkan versi mayor (misal `3.x` → `4.0`).
-- Setiap perubahan ditambahkan ke changelog.
+PRD ini adalah dokumen sumber kebenaran (*single source of truth*) untuk Server Room Monitoring System. Dokumen ini harus diperbarui apabila terdapat perubahan pada kebutuhan produk, arsitektur, kontrak API, skema data, maupun alur operasional utama.
 
 ---
 
-## 22. Changelog
+## 22. Definition of Done
 
-| Versi | Tanggal | Perubahan |
-|---|---|---|
-| 3.0 | 24 Agustus 2026 | Revisi besar berdasarkan kode aktual: menambahkan sensor TEMP-L5 (sudah aktif), tegangan dan arus L4 (sudah aktif), alert tegangan Drop/Surge, notifikasi email, threshold L5 terpisah, tabel `voltage_alerts`, halaman profil dan autentikasi tambahan. Menghapus referensi role Operator yang belum aktif. |
-| 2.1 | 24 Agustus 2026 | Unifikasi PRD ke docs/PRD.md, memperbarui status dan arsitektur HTTPS API. |
-| 2.0 | 23 Juli 2026 | Susun ulang PRD dari implementasi aktual: HTTPS API, Auth.js, Supabase, dashboard, grafik, peringatan, pengaturan, Google Drive, Excel. |
-| 1.0 | Sebelum 23 Juli | Draft awal berbasis MQTT (sudah tidak berlaku). |
+Suatu fitur dianggap selesai apabila:
 
----
-
-## 23. Definition of Done
-
-Satu fitur dianggap selesai ketika:
-
-1. kebutuhan dan kriteria penerimaan tertulis di PRD;
-2. implementasi frontend/backend selesai;
-3. validasi dan penanganan error tersedia;
-4. keamanan dan otorisasi diperiksa;
-5. build produksi berhasil;
-6. pengujian utama berhasil;
-7. PRD dan changelog diperbarui;
-8. tidak ada data simulasi yang ditampilkan sebagai data produksi;
-9. perubahan tidak merusak fitur yang sudah berjalan.
+1. Kebutuhan dan kriteria penerimaan tertulis secara jelas di PRD;
+2. Implementasi frontend dan backend selesai;
+3. Validasi dan penanganan error berfungsi dengan baik;
+4. Keamanan dan otorisasi telah diperiksa;
+5. Build produksi berhasil tanpa error;
+6. Pengujian utama berhasil dijalankan;
+7. Dokumentasi PRD diperbarui;
+8. Tidak ada data simulasi yang ditampilkan sebagai data produksi;
+9. Perubahan tidak merusak fitur yang sudah berjalan.
