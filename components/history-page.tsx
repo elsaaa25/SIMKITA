@@ -220,20 +220,27 @@ export function HistoryPage() {
               </div>
             </div>
 
-            {/* Filter Sensor ID — pisahkan TEMP-L4 dan TEMP-L5 */}
-            <div className="flex items-center gap-2 pt-0.5">
+            {/* Filter Sensor ID — pisahkan TEMP-L4 dan TEMP-L5 (pakai tombol native, bukan Radix Tabs) */}
+            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
               <Cpu className="size-4 shrink-0 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium shrink-0">Sensor:</span>
-              <AnimatedTabsNoIcon
-                tabs={[
-                  { value: "Semua",   label: "Semua Sensor" },
-                  { value: "TEMP-L4", label: "TEMP-L4 (Lantai 4)" },
-                  { value: "TEMP-L5", label: "TEMP-L5 (Lantai 5)" },
-                ]}
-                value={sensorFilter}
-                onValueChange={(val) => setSensor(val as "Semua" | "TEMP-L4" | "TEMP-L5")}
-                indicatorId="history-sensor-tabs"
-              />
+              <div className="flex items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/80 p-1">
+                {(["Semua", "TEMP-L4", "TEMP-L5"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSensor(s)}
+                    className={[
+                      "relative h-8 rounded-xl px-3.5 text-xs font-semibold transition-colors",
+                      sensorFilter === s
+                        ? "bg-white dark:bg-slate-800 text-[#005A9C] dark:text-blue-400 shadow-sm ring-1 ring-slate-200/90 dark:ring-slate-700/80"
+                        : "bg-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100",
+                    ].join(" ")}
+                  >
+                    {s === "Semua" ? "Semua Sensor" : s === "TEMP-L4" ? "TEMP-L4 (Lantai 4)" : "TEMP-L5 (Lantai 5)"}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
