@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Filter, History, Search, Thermometer } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, Cpu, Download, Filter, History, Search, Thermometer } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,7 @@ const formatTime = (value: string) =>
 export function HistoryPage() {
   const [settings, setSettings] = useState<MonitoringSettings>(defaultMonitoringSettings)
   const [statusFilter, setStatusFilter] = useState<"Semua" | Status>("Semua")
+  const [sensorFilter, setSensorFilter] = useState<"Semua" | "TEMP-L4" | "TEMP-L5">("Semua")
   const [search, setSearch] = useState("")
   // Set default tanggal hari ini di WIB (Asia/Bangkok)
   const [date, setDate] = useState(() => {
@@ -94,7 +95,7 @@ export function HistoryPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [date, search, statusFilter])
+  }, [date, search, statusFilter, sensorFilter])
 
   const getStatus = (temperature: number, sensorId: string): Status => {
     const isL5 = sensorId === "TEMP-L5"
@@ -107,7 +108,8 @@ export function HistoryPage() {
   const filtered = readings.filter(item => {
     const status = getStatus(item.temperature, item.sensorId)
     const matchesStatus = statusFilter === "Semua" || status === statusFilter
-    return matchesStatus
+    const matchesSensor = sensorFilter === "Semua" || item.sensorId === sensorFilter
+    return matchesStatus && matchesSensor
   })
 
   // Pagination
@@ -124,6 +126,11 @@ export function HistoryPage() {
 
   const setFilter = (value: "Semua" | Status) => {
     setStatusFilter(value)
+    setPage(1)
+  }
+
+  const setSensor = (value: "Semua" | "TEMP-L4" | "TEMP-L5") => {
+    setSensorFilter(value)
     setPage(1)
   }
 
@@ -211,6 +218,22 @@ export function HistoryPage() {
                   indicatorId="history-status-tabs"
                 />
               </div>
+            </div>
+
+            {/* Filter Sensor ID — pisahkan TEMP-L4 dan TEMP-L5 */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <Cpu className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium shrink-0">Sensor:</span>
+              <AnimatedTabsNoIcon
+                tabs={[
+                  { value: "Semua",   label: "Semua Sensor" },
+                  { value: "TEMP-L4", label: "TEMP-L4 (Lantai 4)" },
+                  { value: "TEMP-L5", label: "TEMP-L5 (Lantai 5)" },
+                ]}
+                value={sensorFilter}
+                onValueChange={(val) => setSensor(val as "Semua" | "TEMP-L4" | "TEMP-L5")}
+                indicatorId="history-sensor-tabs"
+              />
             </div>
           </CardHeader>
           <CardContent className="p-0">
