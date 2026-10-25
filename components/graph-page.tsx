@@ -70,7 +70,7 @@ type SettingsResponse = {
     warningTemperature?: number | string
     dangerTemperature?: number | string
 
-      warningTemperatureL5?: number | string
+    warningTemperatureL5?: number | string
     dangerTemperatureL5?: number | string
 
     refreshInterval?: number | string
@@ -119,10 +119,10 @@ type SummaryCardProps = {
   value: string
   description: string
   color:
-    | "emerald"
-    | "blue"
-    | "amber"
-    | "violet"
+  | "emerald"
+  | "blue"
+  | "amber"
+  | "violet"
   available?: boolean
 }
 
@@ -627,8 +627,8 @@ async function readHistoryResponse(
   if (!response.ok) {
     throw new Error(
       result.error ||
-        result.details ||
-        `Gagal mengambil data (${response.status})`,
+      result.details ||
+      `Gagal mengambil data (${response.status})`,
     )
   }
 
@@ -654,40 +654,40 @@ export function GraphPage() {
   const [lastUpdated, setLastUpdated] =
     useState<Date | null>(null)
 
- const [
-  warningTemperature,
-  setWarningTemperature,
-] = useState(
-  DEFAULT_WARNING_TEMPERATURE,
-)
+  const [
+    warningTemperature,
+    setWarningTemperature,
+  ] = useState(
+    DEFAULT_WARNING_TEMPERATURE,
+  )
 
-const [
-  dangerTemperature,
-  setDangerTemperature,
-] = useState(
-  DEFAULT_DANGER_TEMPERATURE,
-)
+  const [
+    dangerTemperature,
+    setDangerTemperature,
+  ] = useState(
+    DEFAULT_DANGER_TEMPERATURE,
+  )
 
-const [
-  warningTemperatureL5,
-  setWarningTemperatureL5,
-] = useState(
-  DEFAULT_WARNING_TEMPERATURE,
-)
+  const [
+    warningTemperatureL5,
+    setWarningTemperatureL5,
+  ] = useState(
+    DEFAULT_WARNING_TEMPERATURE,
+  )
 
-const [
-  dangerTemperatureL5,
-  setDangerTemperatureL5,
-] = useState(
-  DEFAULT_DANGER_TEMPERATURE,
-)
+  const [
+    dangerTemperatureL5,
+    setDangerTemperatureL5,
+  ] = useState(
+    DEFAULT_DANGER_TEMPERATURE,
+  )
 
-const [
-  refreshSeconds,
-  setRefreshSeconds,
-] = useState(
-  DEFAULT_REFRESH_SECONDS,
-)
+  const [
+    refreshSeconds,
+    setRefreshSeconds,
+  ] = useState(
+    DEFAULT_REFRESH_SECONDS,
+  )
   const latestRequestRunning =
     useRef(false)
 
@@ -719,18 +719,18 @@ const [
             result.data
               ?.dangerTemperature,
           )
-        
-          const warningL5 =
-  parseFiniteNumber(
-    result.data
-      ?.warningTemperatureL5,
-  )
 
-const dangerL5 =
-  parseFiniteNumber(
-    result.data
-      ?.dangerTemperatureL5,
-  )
+        const warningL5 =
+          parseFiniteNumber(
+            result.data
+              ?.warningTemperatureL5,
+          )
+
+        const dangerL5 =
+          parseFiniteNumber(
+            result.data
+              ?.dangerTemperatureL5,
+          )
 
         const refresh =
           parseFiniteNumber(
@@ -739,36 +739,36 @@ const dangerL5 =
           )
 
         if (warning !== null) {
-  setWarningTemperature(warning)
-}
+          setWarningTemperature(warning)
+        }
 
-if (danger !== null) {
-  setDangerTemperature(danger)
-}
+        if (danger !== null) {
+          setDangerTemperature(danger)
+        }
 
-if (warningL5 !== null) {
-  setWarningTemperatureL5(
-    warningL5,
-  )
-} else if (warning !== null) {
-  setWarningTemperatureL5(
-    warning,
-  )
-}
+        if (warningL5 !== null) {
+          setWarningTemperatureL5(
+            warningL5,
+          )
+        } else if (warning !== null) {
+          setWarningTemperatureL5(
+            warning,
+          )
+        }
 
-if (dangerL5 !== null) {
-  setDangerTemperatureL5(
-    dangerL5,
-  )
-} else if (danger !== null) {
-  setDangerTemperatureL5(
-    danger,
-  )
-}
+        if (dangerL5 !== null) {
+          setDangerTemperatureL5(
+            dangerL5,
+          )
+        } else if (danger !== null) {
+          setDangerTemperatureL5(
+            danger,
+          )
+        }
 
-if (refresh !== null) {
-  setRefreshSeconds(refresh)
-}
+        if (refresh !== null) {
+          setRefreshSeconds(refresh)
+        }
       } catch (settingsError) {
         console.error(
           "Gagal mengambil pengaturan grafik:",
@@ -825,9 +825,9 @@ if (refresh !== null) {
         } catch (historyError) {
           if (
             historyError instanceof
-              DOMException &&
+            DOMException &&
             historyError.name ===
-              "AbortError"
+            "AbortError"
           ) {
             return
           }
@@ -1020,9 +1020,9 @@ if (refresh !== null) {
   const selectedDate =
     data.length > 0
       ? formatFullDate(
-          data[data.length - 1]
-            .time,
-        )
+        data[data.length - 1]
+          .time,
+      )
       : formatFullDate(new Date())
 
   const exportCsv = () => {
@@ -1076,9 +1076,8 @@ if (refresh !== null) {
 
     link.href = url
     link.download =
-      `grafik-monitoring-${
-        periodConfigs[period]
-          .fileLabel
+      `grafik-monitoring-${periodConfigs[period]
+        .fileLabel
       }.csv`
 
     document.body.appendChild(link)
@@ -1091,7 +1090,7 @@ if (refresh !== null) {
   return (
     <AppShell
       title="Grafik Monitoring"
-      description="Analisis suhu, tegangan, dan arus ruang server"
+      description="Analisis suhu, tegangan, dan arus"
       actions={
         <Button
           type="button"
@@ -1122,10 +1121,10 @@ if (refresh !== null) {
           description={
             temperatureL4Stats.hasData
               ? `Rata-rata ${getMetricValue(
-                  temperatureL4Stats.average,
-                  1,
-                  "°C",
-                )}`
+                temperatureL4Stats.average,
+                1,
+                "°C",
+              )}`
               : "Belum ada data"
           }
           color="emerald"
@@ -1145,10 +1144,10 @@ if (refresh !== null) {
           description={
             temperatureL5Stats.hasData
               ? `Rata-rata ${getMetricValue(
-                  temperatureL5Stats.average,
-                  1,
-                  "°C",
-                )}`
+                temperatureL5Stats.average,
+                1,
+                "°C",
+              )}`
               : "Belum ada data"
           }
           color="blue"
@@ -1168,10 +1167,10 @@ if (refresh !== null) {
           description={
             voltageStats.hasData
               ? `Rata-rata ${getMetricValue(
-                  voltageStats.average,
-                  1,
-                  " V",
-                )}`
+                voltageStats.average,
+                1,
+                " V",
+              )}`
               : "Belum ada data"
           }
           color="amber"
@@ -1202,8 +1201,8 @@ if (refresh !== null) {
             <span className="text-xs text-muted-foreground">
               {lastUpdated
                 ? `Pembaruan terakhir ${formatDateTime(
-                    lastUpdated,
-                  )}`
+                  lastUpdated,
+                )}`
                 : "Menunggu pembaruan data"}
             </span>
           </div>
@@ -1222,11 +1221,10 @@ if (refresh !== null) {
               className="w-full sm:w-auto"
             >
               <RefreshCw
-                className={`size-4 ${
-                  refreshing
-                    ? "animate-spin"
-                    : ""
-                }`}
+                className={`size-4 ${refreshing
+                  ? "animate-spin"
+                  : ""
+                  }`}
               />
 
               Perbarui
@@ -1271,9 +1269,8 @@ if (refresh !== null) {
           period={period}
           dataKey="temperatureL4"
           title="Suhu Lantai 4"
-          description={`Data realtime TEMP-L4 • ${
-            periodConfigs[period].label
-          }`}
+          description={`Data realtime TEMP-L4 • ${periodConfigs[period].label
+            }`}
           unit="°C"
           decimals={1}
           stroke="#10b981"
@@ -1289,35 +1286,33 @@ if (refresh !== null) {
         />
 
         <MetricChart
-  data={data}
-  period={period}
-  dataKey="temperatureL5"
-  title="Suhu Lantai 5"
-  description={`Data realtime TEMP-L5 • ${
-    periodConfigs[period].label
-  }`}
-  unit="°C"
-  decimals={1}
-  stroke="#3b82f6"
-  gradientId="temperature-l5-fill"
-  warning={
-    warningTemperatureL5
-  }
-  danger={
-    dangerTemperatureL5
-  }
-  loading={loading}
-  emptyMessage="Belum ada data suhu Lantai 5 pada periode ini."
-/>
+          data={data}
+          period={period}
+          dataKey="temperatureL5"
+          title="Suhu Lantai 5"
+          description={`Data realtime TEMP-L5 • ${periodConfigs[period].label
+            }`}
+          unit="°C"
+          decimals={1}
+          stroke="#3b82f6"
+          gradientId="temperature-l5-fill"
+          warning={
+            warningTemperatureL5
+          }
+          danger={
+            dangerTemperatureL5
+          }
+          loading={loading}
+          emptyMessage="Belum ada data suhu Lantai 5 pada periode ini."
+        />
 
         <MetricChart
           data={data}
           period={period}
           dataKey="voltage"
           title="Tegangan"
-          description={`Data tegangan TEMP-L4 • ${
-            periodConfigs[period].label
-          }`}
+          description={`Data tegangan TEMP-L4 • ${periodConfigs[period].label
+            }`}
           unit=" V"
           decimals={1}
           stroke="#f59e0b"
