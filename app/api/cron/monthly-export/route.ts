@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const maxDuration = 300
 
-const DEPLOYMENT_VERSION = "monthly-streaming-v4"
+const DEPLOYMENT_VERSION = "monthly-snapshot-v5"
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
 const DATABASE_PAGE_SIZE = 5_000
 
@@ -144,13 +144,28 @@ function getMonthRangeUtc(
   }
 }
 
-async function countDatabaseReadings({
+type DatabaseSnapshot = {
+  rowCount: number
+  maxId: number
+}
+
+async function getDatabaseSnapshot({
   startUtc,
   endUtc,
-}: MonthRange): Promise<number> {
-  const result = await db.query<{ count: string }>(
+}: MonthRange): Promise<DatabaseSnapshot> {
+  /*
+   * COUNT dan MAX dijalankan dalam satu statement agar keduanya
+   * memakai snapshot PostgreSQL yang sama. maxId menjadi high-water
+   * mark: baris yang masuk setelah ekspor dimulai tidak ikut batch ini.
+   */
+  const result = await db.query<{
+    count: string
+    max_id: string | null
+  }>(
     `
-      SELECT COUNT(*)::text AS count
+      SELECT
+        COUNT(*)::text AS count,
+        MAX(id)::text AS max_id
       FROM sensor_readings
       WHERE recorded_at >= $1
         AND recorded_at < $2
@@ -162,14 +177,20 @@ async function countDatabaseReadings({
   )
 
   const rowCount = Number(result.rows[0]?.count ?? 0)
+  const maxId = Number(result.rows[0]?.max_id ?? 0)
 
-  if (!Number.isSafeInteger(rowCount) || rowCount < 0) {
+  if (
+    !Number.isSafeInteger(rowCount) ||
+    rowCount < 0 ||
+    !Number.isSafeInteger(maxId) ||
+    maxId < 0
+  ) {
     throw new Error(
-      "Jumlah data bulanan dari database tidak valid.",
+      "Snapshot data bulanan dari database tidak valid.",
     )
   }
 
-  return rowCount
+  return { rowCount, maxId }
 }
 
 /**
@@ -179,7 +200,10 @@ async function countDatabaseReadings({
 async function* streamDatabaseReadings({
   startUtc,
   endUtc,
-}: MonthRange): AsyncGenerator<MonthlyDatabaseReading> {
+  maxId,
+}: MonthRange & {
+  maxId: number
+}): AsyncGenerator<MonthlyDatabaseReading> {
   let lastRecordedAt: Date | null = null
   let lastId = 0
 
@@ -199,19 +223,21 @@ async function* streamDatabaseReadings({
           FROM sensor_readings
           WHERE recorded_at >= $1
             AND recorded_at < $2
+            AND id <= $3
             AND (
-              recorded_at > $3
+              recorded_at > $4
               OR (
-                recorded_at = $3
-                AND id > $4
+                recorded_at = $4
+                AND id > $5
               )
             )
           ORDER BY recorded_at ASC, id ASC
-          LIMIT $5
+          LIMIT $6
         `,
         [
           startUtc.toISOString(),
           endUtc.toISOString(),
+          maxId,
           lastRecordedAt.toISOString(),
           lastId,
           DATABASE_PAGE_SIZE,
@@ -230,12 +256,14 @@ async function* streamDatabaseReadings({
           FROM sensor_readings
           WHERE recorded_at >= $1
             AND recorded_at < $2
+            AND id <= $3
           ORDER BY recorded_at ASC, id ASC
-          LIMIT $3
+          LIMIT $4
         `,
         [
           startUtc.toISOString(),
           endUtc.toISOString(),
+          maxId,
           DATABASE_PAGE_SIZE,
         ],
       )
@@ -296,10 +324,12 @@ async function* streamDatabaseReadings({
 async function deleteExportedReadings({
   startUtc,
   endUtc,
+  maxId,
   expectedRowCount,
 }: {
   startUtc: Date
   endUtc: Date
+  maxId: number
   expectedRowCount: number
 }): Promise<number> {
   const client = await db.connect()
@@ -313,10 +343,12 @@ async function deleteExportedReadings({
           DELETE FROM sensor_readings
           WHERE recorded_at >= $1
             AND recorded_at < $2
+            AND id <= $3
         `,
         [
           startUtc.toISOString(),
           endUtc.toISOString(),
+          maxId,
         ],
       )
 
@@ -437,8 +469,8 @@ export async function GET(
       deleteAfterExport,
     )
 
-    const rowCount =
-      await countDatabaseReadings({
+    const { rowCount, maxId } =
+      await getDatabaseSnapshot({
         startUtc,
         endUtc,
       })
@@ -446,6 +478,11 @@ export async function GET(
     console.log(
       "[monthly-export] Database rows:",
       rowCount,
+    )
+
+    console.log(
+      "[monthly-export] Snapshot max ID:",
+      maxId,
     )
 
     if (rowCount === 0) {
@@ -490,6 +527,7 @@ export async function GET(
             streamDatabaseReadings({
               startUtc,
               endUtc,
+              maxId,
             }),
           outputPath: filePath,
         })
@@ -581,6 +619,7 @@ export async function GET(
           await deleteExportedReadings({
             startUtc,
             endUtc,
+            maxId,
             expectedRowCount:
               excelResult.rowCount,
           })
