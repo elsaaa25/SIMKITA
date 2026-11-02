@@ -1,3 +1,4 @@
+import { createReadStream } from "node:fs"
 import { Readable } from "node:stream"
 import { google } from "googleapis"
 
@@ -65,12 +66,12 @@ function createGoogleDriveClient() {
   }
 }
 
-export async function uploadExcelToGoogleDrive({
+async function uploadExcelStreamToGoogleDrive({
   fileName,
-  fileBuffer,
+  body,
 }: {
   fileName: string
-  fileBuffer: Buffer
+  body: Readable
 }) {
   const { drive, folderId } =
     createGoogleDriveClient()
@@ -83,7 +84,7 @@ export async function uploadExcelToGoogleDrive({
     },
     media: {
       mimeType: EXCEL_MIME_TYPE,
-      body: Readable.from([fileBuffer]),
+      body,
     },
     fields:
       "id,name,parents,webViewLink",
@@ -102,4 +103,30 @@ export async function uploadExcelToGoogleDrive({
       result.data.webViewLink ?? null,
     parents: result.data.parents ?? [],
   }
+}
+
+export async function uploadExcelToGoogleDrive({
+  fileName,
+  fileBuffer,
+}: {
+  fileName: string
+  fileBuffer: Buffer
+}) {
+  return uploadExcelStreamToGoogleDrive({
+    fileName,
+    body: Readable.from([fileBuffer]),
+  })
+}
+
+export async function uploadExcelFileToGoogleDrive({
+  fileName,
+  filePath,
+}: {
+  fileName: string
+  filePath: string
+}) {
+  return uploadExcelStreamToGoogleDrive({
+    fileName,
+    body: createReadStream(filePath),
+  })
 }

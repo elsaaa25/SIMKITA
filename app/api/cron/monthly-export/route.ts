@@ -1,28 +1,26 @@
+import { randomUUID } from "node:crypto"
+import { unlink } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
 import { NextResponse } from "next/server"
+import type { QueryResult } from "pg"
 
 import { db } from "@/lib/db"
-import { uploadExcelToGoogleDrive } from "@/lib/google-drive"
+import { uploadExcelFileToGoogleDrive } from "@/lib/google-drive"
 import {
-  createMonthlyExcel,
-  type MonthlySensorReading,
+  createMonthlyExcelFile,
+  type MonthlyDatabaseReading,
 } from "@/lib/monthly-export"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-export const maxDuration = 60
+export const maxDuration = 300
 
-const DEPLOYMENT_VERSION = "monthly-cleanup-v3"
+const DEPLOYMENT_VERSION = "monthly-streaming-v4"
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
-
-type DatabaseReading = {
-  id: number
-  sensor_id: string
-  temperature: string | null
-  voltage: string | null
-  current: string | null
-  recorded_at: Date
-}
+const DATABASE_PAGE_SIZE = 5_000
 
 type MonthRange = {
   startUtc: Date
@@ -146,84 +144,140 @@ function getMonthRangeUtc(
   }
 }
 
-/**
- * Mengubah baris sensor_readings menjadi data
- * yang dibutuhkan pembuat file Excel.
- *
- * Satu baris database dapat menghasilkan lebih
- * dari satu reading Excel.
- *
- * Contoh:
- * - suhu
- * - tegangan
- *
- * Oleh karena itu readingCount dapat lebih besar
- * daripada rowCount.
- */
-function mapDatabaseReadings(
-  rows: DatabaseReading[],
-): MonthlySensorReading[] {
-  const readings: MonthlySensorReading[] = []
+async function countDatabaseReadings({
+  startUtc,
+  endUtc,
+}: MonthRange): Promise<number> {
+  const result = await db.query<{ count: string }>(
+    `
+      SELECT COUNT(*)::text AS count
+      FROM sensor_readings
+      WHERE recorded_at >= $1
+        AND recorded_at < $2
+    `,
+    [
+      startUtc.toISOString(),
+      endUtc.toISOString(),
+    ],
+  )
 
-  for (const row of rows) {
-    const sensorId =
-      row.sensor_id
-        .trim()
-        .toUpperCase()
+  const rowCount = Number(result.rows[0]?.count ?? 0)
 
-    if (row.temperature !== null) {
-      const temperature =
-        Number(row.temperature)
-
-      if (Number.isFinite(temperature)) {
-        readings.push({
-          id: `${row.id}-temp`,
-          sensorId,
-          metric:
-            sensorId === "TEMP-L5"
-              ? "suhu lantai 5"
-              : "suhu lantai 4",
-          value: temperature,
-          unit: "°C",
-          recordedAt: row.recorded_at,
-        })
-      }
-    }
-
-    if (row.voltage !== null) {
-      const voltage =
-        Number(row.voltage)
-
-      if (Number.isFinite(voltage)) {
-        readings.push({
-          id: `${row.id}-volt`,
-          sensorId: "VOLT-01",
-          metric: "tegangan",
-          value: voltage,
-          unit: "V",
-          recordedAt: row.recorded_at,
-        })
-      }
-    }
-
-    if (row.current !== null) {
-      const current =
-        Number(row.current)
-
-      if (Number.isFinite(current)) {
-        readings.push({
-          id: `${row.id}-curr`,
-          sensorId: "CURRENT-01",
-          metric: "arus",
-          value: current,
-          unit: "A",
-          recordedAt: row.recorded_at,
-        })
-      }
-    }
+  if (!Number.isSafeInteger(rowCount) || rowCount < 0) {
+    throw new Error(
+      "Jumlah data bulanan dari database tidak valid.",
+    )
   }
 
-  return readings
+  return rowCount
+}
+
+/**
+ * Membaca database menggunakan keyset pagination.
+ * Hanya satu halaman yang berada di memori pada satu waktu.
+ */
+async function* streamDatabaseReadings({
+  startUtc,
+  endUtc,
+}: MonthRange): AsyncGenerator<MonthlyDatabaseReading> {
+  let lastRecordedAt: Date | null = null
+  let lastId = 0
+
+  while (true) {
+    let result: QueryResult<MonthlyDatabaseReading>
+
+    if (lastRecordedAt) {
+      result = await db.query<MonthlyDatabaseReading>(
+        `
+          SELECT
+            id,
+            sensor_id,
+            temperature,
+            voltage,
+            current,
+            recorded_at
+          FROM sensor_readings
+          WHERE recorded_at >= $1
+            AND recorded_at < $2
+            AND (
+              recorded_at > $3
+              OR (
+                recorded_at = $3
+                AND id > $4
+              )
+            )
+          ORDER BY recorded_at ASC, id ASC
+          LIMIT $5
+        `,
+        [
+          startUtc.toISOString(),
+          endUtc.toISOString(),
+          lastRecordedAt.toISOString(),
+          lastId,
+          DATABASE_PAGE_SIZE,
+        ],
+      )
+    } else {
+      result = await db.query<MonthlyDatabaseReading>(
+        `
+          SELECT
+            id,
+            sensor_id,
+            temperature,
+            voltage,
+            current,
+            recorded_at
+          FROM sensor_readings
+          WHERE recorded_at >= $1
+            AND recorded_at < $2
+          ORDER BY recorded_at ASC, id ASC
+          LIMIT $3
+        `,
+        [
+          startUtc.toISOString(),
+          endUtc.toISOString(),
+          DATABASE_PAGE_SIZE,
+        ],
+      )
+    }
+
+    if (result.rows.length === 0) {
+      break
+    }
+
+    for (const row of result.rows) {
+      yield row
+    }
+
+    const lastRow: MonthlyDatabaseReading | undefined =
+      result.rows.at(-1)
+
+    if (!lastRow) {
+      break
+    }
+
+    const nextRecordedAt =
+      lastRow.recorded_at instanceof Date
+        ? lastRow.recorded_at
+        : new Date(lastRow.recorded_at)
+    const nextId = Number(lastRow.id)
+
+    if (
+      Number.isNaN(nextRecordedAt.getTime()) ||
+      !Number.isSafeInteger(nextId)
+    ) {
+      throw new Error(
+        "Cursor pagination database tidak valid.",
+      )
+    }
+
+    lastRecordedAt = nextRecordedAt
+    lastId = nextId
+
+    if (result.rows.length < DATABASE_PAGE_SIZE) {
+      break
+    }
+  }
 }
 
 /**
@@ -383,36 +437,11 @@ export async function GET(
       deleteAfterExport,
     )
 
-    /*
-     * Mengambil semua data bulan yang dipilih.
-     *
-     * Batas akhir menggunakan "< endUtc",
-     * sehingga data tanggal 1 bulan baru tidak
-     * ikut diekspor atau dihapus.
-     */
-    const result =
-      await db.query<DatabaseReading>(
-        `
-          SELECT
-            id,
-            sensor_id,
-            temperature,
-            voltage,
-            current,
-            recorded_at
-          FROM sensor_readings
-          WHERE recorded_at >= $1
-            AND recorded_at < $2
-          ORDER BY recorded_at ASC
-        `,
-        [
-          startUtc.toISOString(),
-          endUtc.toISOString(),
-        ],
-      )
-
     const rowCount =
-      result.rows.length
+      await countDatabaseReadings({
+        startUtc,
+        endUtc,
+      })
 
     console.log(
       "[monthly-export] Database rows:",
@@ -440,149 +469,177 @@ export async function GET(
       })
     }
 
-    const readings =
-      mapDatabaseReadings(
-        result.rows,
-      )
-
-    console.log(
-      "[monthly-export] Excel readings:",
-      readings.length,
-    )
-
-    if (readings.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          deploymentVersion:
-            DEPLOYMENT_VERSION,
-          error:
-            "Data ditemukan, tetapi tidak ada nilai valid untuk diekspor.",
-          archiveMonth,
-          period: {
-            startUtc:
-              startUtc.toISOString(),
-            endUtc:
-              endUtc.toISOString(),
-          },
-          rowCount,
-          readingCount: 0,
-          deleteAfterExport,
-          deletedRowCount: 0,
-        },
-        {
-          status: 422,
-        },
-      )
-    }
-
-    /*
-     * LANGKAH 1:
-     * Membuat file Excel.
-     */
-    const fileBuffer =
-      await createMonthlyExcel({
-        archiveMonth,
-        readings,
-      })
-
     const fileName =
       `laporan-monitoring-${archiveMonth}.xlsx`
-
-    /*
-     * LANGKAH 2:
-     * Mengunggah file Excel ke Google Drive.
-     *
-     * Jika upload gagal, fungsi akan masuk ke catch.
-     * Proses DELETE tidak pernah dijalankan.
-     */
-    const uploadResult =
-      await uploadExcelToGoogleDrive({
-        fileName,
-        fileBuffer,
-      })
-
-    /*
-     * Google Drive harus mengembalikan file ID.
-     * Tanpa ID, file belum dianggap berhasil tersimpan.
-     */
-    if (!uploadResult.id) {
-      throw new Error(
-        "Google Drive tidak mengembalikan file ID. " +
-          "Penghapusan data dibatalkan.",
-      )
-    }
-
-    console.log(
-      "[monthly-export] Google Drive file ID:",
-      uploadResult.id,
+    const filePath = join(
+      tmpdir(),
+      `${randomUUID()}-${fileName}`,
     )
 
-    /*
-     * LANGKAH 3:
-     * Menghapus data hanya jika environment
-     * DELETE_AFTER_MONTHLY_EXPORT aktif.
-     */
-    let deletedRowCount = 0
-
-    if (deleteAfterExport) {
-      console.log(
-        "[monthly-export] Memulai penghapusan data.",
-      )
-
-      deletedRowCount =
-        await deleteExportedReadings({
-          startUtc,
-          endUtc,
-          expectedRowCount:
-            rowCount,
+    try {
+      /*
+       * LANGKAH 1:
+       * Database dibaca per halaman dan Excel ditulis
+       * langsung ke file sementara. Tidak ada array atau
+       * buffer laporan bulanan berukuran besar di memori.
+       */
+      const excelResult =
+        await createMonthlyExcelFile({
+          archiveMonth,
+          databaseRows:
+            streamDatabaseReadings({
+              startUtc,
+              endUtc,
+            }),
+          outputPath: filePath,
         })
 
       console.log(
-        "[monthly-export] Data terhapus:",
-        deletedRowCount,
+        "[monthly-export] Streamed database rows:",
+        excelResult.rowCount,
       )
-    } else {
       console.log(
-        "[monthly-export] Penghapusan dinonaktifkan.",
+        "[monthly-export] Excel readings:",
+        excelResult.readingCount,
       )
-    }
+      console.log(
+        "[monthly-export] Excel measurement rows:",
+        excelResult.measurementRowCount,
+      )
 
-    return NextResponse.json({
-      success: true,
-      deploymentVersion:
-        DEPLOYMENT_VERSION,
-      message: deleteAfterExport
-        ? (
-            `Laporan ${archiveMonth} berhasil ` +
-            `diunggah ke Google Drive dan ` +
-            `${deletedRowCount} data lama ` +
-            "berhasil dihapus."
-          )
-        : (
-            `Laporan ${archiveMonth} berhasil ` +
-            "diunggah ke Google Drive. " +
-            "Penghapusan data masih dinonaktifkan."
-          ),
-      archiveMonth,
-      period: {
-        startUtc:
-          startUtc.toISOString(),
-        endUtc:
-          endUtc.toISOString(),
-      },
-      rowCount,
-      readingCount:
-        readings.length,
-      deleteAfterExport,
-      deletedRowCount,
-      file: {
-        id: uploadResult.id,
-        name: uploadResult.name,
-        webViewLink:
-          uploadResult.webViewLink,
-      },
-    })
+      if (excelResult.rowCount !== rowCount) {
+        throw new Error(
+          "Jumlah data berubah selama proses export. " +
+            `Awal: ${rowCount}, ` +
+            `diproses: ${excelResult.rowCount}. ` +
+            "Upload dan penghapusan dibatalkan.",
+        )
+      }
+
+      if (excelResult.readingCount === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            deploymentVersion:
+              DEPLOYMENT_VERSION,
+            error:
+              "Data ditemukan, tetapi tidak ada nilai valid untuk diekspor.",
+            archiveMonth,
+            period: {
+              startUtc:
+                startUtc.toISOString(),
+              endUtc:
+                endUtc.toISOString(),
+            },
+            rowCount,
+            readingCount: 0,
+            deleteAfterExport,
+            deletedRowCount: 0,
+          },
+          {
+            status: 422,
+          },
+        )
+      }
+
+      /*
+       * LANGKAH 2:
+       * File diunggah sebagai read stream. DELETE tidak
+       * dijalankan apabila upload gagal atau tidak memberi ID.
+       */
+      const uploadResult =
+        await uploadExcelFileToGoogleDrive({
+          fileName,
+          filePath,
+        })
+
+      if (!uploadResult.id) {
+        throw new Error(
+          "Google Drive tidak mengembalikan file ID. " +
+            "Penghapusan data dibatalkan.",
+        )
+      }
+
+      console.log(
+        "[monthly-export] Google Drive file ID:",
+        uploadResult.id,
+      )
+
+      /*
+       * LANGKAH 3:
+       * Penghapusan baru dilakukan setelah Google Drive
+       * mengonfirmasi file berhasil dibuat.
+       */
+      let deletedRowCount = 0
+
+      if (deleteAfterExport) {
+        console.log(
+          "[monthly-export] Memulai penghapusan data.",
+        )
+
+        deletedRowCount =
+          await deleteExportedReadings({
+            startUtc,
+            endUtc,
+            expectedRowCount:
+              excelResult.rowCount,
+          })
+
+        console.log(
+          "[monthly-export] Data terhapus:",
+          deletedRowCount,
+        )
+      } else {
+        console.log(
+          "[monthly-export] Penghapusan dinonaktifkan.",
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        deploymentVersion:
+          DEPLOYMENT_VERSION,
+        message: deleteAfterExport
+          ? (
+              `Laporan ${archiveMonth} berhasil ` +
+              `diunggah ke Google Drive dan ` +
+              `${deletedRowCount} data lama ` +
+              "berhasil dihapus."
+            )
+          : (
+              `Laporan ${archiveMonth} berhasil ` +
+              "diunggah ke Google Drive. " +
+              "Penghapusan data masih dinonaktifkan."
+            ),
+        archiveMonth,
+        period: {
+          startUtc:
+            startUtc.toISOString(),
+          endUtc:
+            endUtc.toISOString(),
+        },
+        rowCount: excelResult.rowCount,
+        readingCount:
+          excelResult.readingCount,
+        measurementRowCount:
+          excelResult.measurementRowCount,
+        deleteAfterExport,
+        deletedRowCount,
+        file: {
+          id: uploadResult.id,
+          name: uploadResult.name,
+          webViewLink:
+            uploadResult.webViewLink,
+        },
+      })
+    } finally {
+      await unlink(filePath).catch((error) => {
+        console.warn(
+          "[monthly-export] Gagal menghapus file sementara:",
+          error,
+        )
+      })
+    }
   } catch (error) {
     console.error(
       "[monthly-export] Gagal:",
