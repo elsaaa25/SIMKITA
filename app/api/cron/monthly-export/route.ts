@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const maxDuration = 300
 
-const DEPLOYMENT_VERSION = "monthly-snapshot-v5"
+const DEPLOYMENT_VERSION = "monthly-precise-cursor-v6"
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
 const DATABASE_PAGE_SIZE = 5_000
 
@@ -149,6 +149,10 @@ type DatabaseSnapshot = {
   maxId: number
 }
 
+type DatabasePageReading = MonthlyDatabaseReading & {
+  recorded_at_cursor: string
+}
+
 async function getDatabaseSnapshot({
   startUtc,
   endUtc,
@@ -204,14 +208,19 @@ async function* streamDatabaseReadings({
 }: MonthRange & {
   maxId: number
 }): AsyncGenerator<MonthlyDatabaseReading> {
-  let lastRecordedAt: Date | null = null
+  /*
+   * Driver PostgreSQL mengubah TIMESTAMPTZ menjadi Date JavaScript dan
+   * memangkas mikrodetik menjadi milidetik. Cursor memakai teks UTC dengan
+   * enam digit mikrodetik agar baris di batas halaman tidak terbaca ulang.
+   */
+  let lastRecordedAtCursor: string | null = null
   let lastId = 0
 
   while (true) {
-    let result: QueryResult<MonthlyDatabaseReading>
+    let result: QueryResult<DatabasePageReading>
 
-    if (lastRecordedAt) {
-      result = await db.query<MonthlyDatabaseReading>(
+    if (lastRecordedAtCursor) {
+      result = await db.query<DatabasePageReading>(
         `
           SELECT
             id,
@@ -219,7 +228,11 @@ async function* streamDatabaseReadings({
             temperature,
             voltage,
             current,
-            recorded_at
+            recorded_at,
+            to_char(
+              recorded_at AT TIME ZONE 'UTC',
+              'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+            ) AS recorded_at_cursor
           FROM sensor_readings
           WHERE recorded_at >= $1
             AND recorded_at < $2
@@ -238,13 +251,13 @@ async function* streamDatabaseReadings({
           startUtc.toISOString(),
           endUtc.toISOString(),
           maxId,
-          lastRecordedAt.toISOString(),
+          lastRecordedAtCursor,
           lastId,
           DATABASE_PAGE_SIZE,
         ],
       )
     } else {
-      result = await db.query<MonthlyDatabaseReading>(
+      result = await db.query<DatabasePageReading>(
         `
           SELECT
             id,
@@ -252,7 +265,11 @@ async function* streamDatabaseReadings({
             temperature,
             voltage,
             current,
-            recorded_at
+            recorded_at,
+            to_char(
+              recorded_at AT TIME ZONE 'UTC',
+              'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+            ) AS recorded_at_cursor
           FROM sensor_readings
           WHERE recorded_at >= $1
             AND recorded_at < $2
@@ -277,21 +294,19 @@ async function* streamDatabaseReadings({
       yield row
     }
 
-    const lastRow: MonthlyDatabaseReading | undefined =
+    const lastRow: DatabasePageReading | undefined =
       result.rows.at(-1)
 
     if (!lastRow) {
       break
     }
 
-    const nextRecordedAt =
-      lastRow.recorded_at instanceof Date
-        ? lastRow.recorded_at
-        : new Date(lastRow.recorded_at)
+    const nextRecordedAtCursor =
+      lastRow.recorded_at_cursor
     const nextId = Number(lastRow.id)
 
     if (
-      Number.isNaN(nextRecordedAt.getTime()) ||
+      !nextRecordedAtCursor ||
       !Number.isSafeInteger(nextId)
     ) {
       throw new Error(
@@ -299,7 +314,7 @@ async function* streamDatabaseReadings({
       )
     }
 
-    lastRecordedAt = nextRecordedAt
+    lastRecordedAtCursor = nextRecordedAtCursor
     lastId = nextId
 
     if (result.rows.length < DATABASE_PAGE_SIZE) {
