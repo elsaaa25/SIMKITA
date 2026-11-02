@@ -57,11 +57,14 @@ export const db =
     database: DB_NAME,
     user: DB_USER,
     password: DB_PASSWORD,
+    max: 5,
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 10000,
     ssl: {
       rejectUnauthorized: false,
     },
   })
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDatabase.db = db
-}
+// Cache pool di semua environment (termasuk production)
+// agar serverless function tidak membuat pool baru setiap request.
+globalForDatabase.db = db

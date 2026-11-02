@@ -179,6 +179,9 @@ authorized({ auth: session, request }) {
   "/api/account/verify-email",
   "/api/account/confirm-password",
   "/api/auth",
+  "/api/cron",
+  "/api/sensor",
+  "/api/google",
   ]
 
   const isPublicRoute = publicRoutes.some(
