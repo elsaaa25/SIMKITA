@@ -401,37 +401,6 @@ async function deleteExportedReadings({
 export async function GET(
   request: Request,
 ) {
-  const cronSecret =
-    process.env.CRON_SECRET?.trim()
-
-  const authHeader =
-    request.headers.get(
-      "authorization",
-    )
-
-  /*
-   * Endpoint hanya dapat dijalankan menggunakan:
-   *
-   * Authorization: Bearer CRON_SECRET
-   */
-  if (
-    !cronSecret ||
-    authHeader !==
-      `Bearer ${cronSecret}`
-  ) {
-    return NextResponse.json(
-      {
-        success: false,
-        deploymentVersion:
-          DEPLOYMENT_VERSION,
-        error: "Unauthorized",
-      },
-      {
-        status: 401,
-      },
-    )
-  }
-
   try {
     const archiveMonth =
       getArchiveMonth(request.url)
