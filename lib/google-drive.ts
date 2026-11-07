@@ -12,9 +12,6 @@ function getGoogleDriveConfig() {
   const clientSecret =
     process.env.GOOGLE_CLIENT_SECRET
 
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI
-
   const refreshToken =
     process.env.GOOGLE_REFRESH_TOKEN
 
@@ -24,7 +21,6 @@ function getGoogleDriveConfig() {
   if (
     !clientId ||
     !clientSecret ||
-    !redirectUri ||
     !refreshToken ||
     !folderId
   ) {
@@ -36,7 +32,6 @@ function getGoogleDriveConfig() {
   return {
     clientId,
     clientSecret,
-    redirectUri,
     refreshToken,
     folderId,
   }
@@ -48,7 +43,6 @@ function createGoogleDriveClient() {
   const auth = new google.auth.OAuth2(
     config.clientId,
     config.clientSecret,
-    config.redirectUri,
   )
 
   auth.setCredentials({

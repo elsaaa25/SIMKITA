@@ -37,15 +37,17 @@ export async function GET(request: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID
   const clientSecret =
     process.env.GOOGLE_CLIENT_SECRET
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI
+  const redirectUri = new URL(
+    "/api/google/oauth/callback",
+    request.url,
+  ).toString()
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret) {
     return Response.json(
       {
         success: false,
         error:
-          "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, atau GOOGLE_REDIRECT_URI belum lengkap",
+          "GOOGLE_CLIENT_ID atau GOOGLE_CLIENT_SECRET belum lengkap",
       },
       {
         status: 500,

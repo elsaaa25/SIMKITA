@@ -3,18 +3,19 @@ import { google } from "googleapis"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret =
       process.env.GOOGLE_CLIENT_SECRET
-    const redirectUri =
-      process.env.GOOGLE_REDIRECT_URI
+    const redirectUri = new URL(
+      "/api/google/oauth/callback",
+      request.url,
+    ).toString()
 
     if (
       !clientId ||
-      !clientSecret ||
-      !redirectUri
+      !clientSecret
     ) {
       return Response.json(
         {
