@@ -1412,15 +1412,24 @@ export function Dashboard() {
   const recentReadings =
     useMemo(
       () =>
-        latestReadings
+        historyReadings
           .filter(
             reading =>
               reading.sensorId ===
               activeSensorId,
           )
+          .sort(
+            (first, second) =>
+              new Date(
+                second.recordedAt,
+              ).getTime() -
+              new Date(
+                first.recordedAt,
+              ).getTime(),
+          )
           .slice(0, 5),
       [
-        latestReadings,
+        historyReadings,
         activeSensorId,
       ],
     )
