@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
+import { ensureSensorLatestState } from "@/lib/sensor-latest-state"
 
 export const runtime = "nodejs"
 
@@ -458,136 +459,161 @@ export async function POST(request: Request) {
 
     // 5. Selalu perbarui heartbeat/latest-state. Riwayat hanya
     //    ditambah saat ada perubahan penting atau snapshot 5 menit.
-    const client = await db.connect()
     let readingId: number | null = null
     let stored = false
     const storageReasons: string[] = []
+    const latestStateAvailable =
+      await ensureSensorLatestState()
 
-    try {
-      await client.query("BEGIN")
+    if (!latestStateAvailable) {
+      // Gagal membuat tabel baru (misalnya role database tidak punya
+      // izin DDL): pertahankan perilaku lama agar data sensor tidak putus.
+      const fallbackResult =
+        await db.query<{ id: number }>(
+          `INSERT INTO sensor_readings
+             (sensor_id, temperature, voltage, current, recorded_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           RETURNING id`,
+          [
+            sensorId,
+            temperature,
+            voltage ?? null,
+            current ?? null,
+          ],
+        )
 
-      await client.query(
-        `INSERT INTO sensor_latest_state
-           (sensor_id, temperature, voltage, current, last_seen,
-            temperature_status, voltage_status, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), $5, $6, NOW())
-         ON CONFLICT (sensor_id) DO NOTHING`,
-        [
-          sensorId,
-          temperature,
-          voltage ?? null,
-          current ?? null,
-          temperatureStatus,
-          voltageStatus,
-        ],
-      )
+      readingId = fallbackResult.rows[0].id
+      stored = true
+      storageReasons.push("compatibility-fallback")
+    } else {
+      const client = await db.connect()
 
-      const stateResult = await client.query<SensorState>(
-        `SELECT
-           history_temperature AS "historyTemperature",
-           last_history_at AS "lastHistoryAt",
-           temperature_status AS "temperatureStatus",
-           voltage_status AS "voltageStatus"
-         FROM sensor_latest_state
-         WHERE sensor_id = $1
-         FOR UPDATE`,
-        [sensorId],
-      )
+      try {
+        await client.query("BEGIN")
 
-      const state = stateResult.rows[0]
-      const historyTemperature =
-        state.historyTemperature === null
-          ? null
-          : Number(state.historyTemperature)
-      const lastHistoryAt = state.lastHistoryAt
-        ? new Date(state.lastHistoryAt).getTime()
-        : null
+        await client.query(
+          `INSERT INTO sensor_latest_state
+             (sensor_id, temperature, voltage, current, last_seen,
+              temperature_status, voltage_status, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), $5, $6, NOW())
+           ON CONFLICT (sensor_id) DO NOTHING`,
+          [
+            sensorId,
+            temperature,
+            voltage ?? null,
+            current ?? null,
+            temperatureStatus,
+            voltageStatus,
+          ],
+        )
 
-      if (
-        historyTemperature === null ||
-        lastHistoryAt === null
-      ) {
-        storageReasons.push("first-reading")
-      } else {
-        if (
-          Math.abs(
-            temperature - historyTemperature,
-          ) >= TEMPERATURE_CHANGE_THRESHOLD
-        ) {
-          storageReasons.push("temperature-change")
-        }
+        const stateResult = await client.query<SensorState>(
+          `SELECT
+             history_temperature AS "historyTemperature",
+             last_history_at AS "lastHistoryAt",
+             temperature_status AS "temperatureStatus",
+             voltage_status AS "voltageStatus"
+           FROM sensor_latest_state
+           WHERE sensor_id = $1
+           FOR UPDATE`,
+          [sensorId],
+        )
 
-        if (
-          state.temperatureStatus !==
-          temperatureStatus
-        ) {
-          storageReasons.push("temperature-status")
-        }
-
-        if (
-          state.voltageStatus !== voltageStatus
-        ) {
-          storageReasons.push("voltage-status")
-        }
+        const state = stateResult.rows[0]
+        const historyTemperature =
+          state.historyTemperature === null
+            ? null
+            : Number(state.historyTemperature)
+        const lastHistoryAt = state.lastHistoryAt
+          ? new Date(state.lastHistoryAt).getTime()
+          : null
 
         if (
-          Date.now() - lastHistoryAt >=
-          HISTORY_SNAPSHOT_INTERVAL_MS
+          historyTemperature === null ||
+          lastHistoryAt === null
         ) {
-          storageReasons.push("periodic-snapshot")
+          storageReasons.push("first-reading")
+        } else {
+          if (
+            Math.abs(
+              temperature - historyTemperature,
+            ) >= TEMPERATURE_CHANGE_THRESHOLD
+          ) {
+            storageReasons.push("temperature-change")
+          }
+
+          if (
+            state.temperatureStatus !==
+            temperatureStatus
+          ) {
+            storageReasons.push("temperature-status")
+          }
+
+          if (
+            state.voltageStatus !== voltageStatus
+          ) {
+            storageReasons.push("voltage-status")
+          }
+
+          if (
+            Date.now() - lastHistoryAt >=
+            HISTORY_SNAPSHOT_INTERVAL_MS
+          ) {
+            storageReasons.push("periodic-snapshot")
+          }
         }
+
+        stored = storageReasons.length > 0
+
+        if (stored) {
+          const insertResult =
+            await client.query<{ id: number }>(
+              `INSERT INTO sensor_readings
+                 (sensor_id, temperature, voltage, current, recorded_at)
+               VALUES ($1, $2, $3, $4, NOW())
+               RETURNING id`,
+              [
+                sensorId,
+                temperature,
+                voltage ?? null,
+                current ?? null,
+              ],
+            )
+
+          readingId = insertResult.rows[0].id
+        }
+
+        await client.query(
+          `UPDATE sensor_latest_state
+           SET temperature = $2,
+               voltage = $3,
+               current = $4,
+               last_seen = NOW(),
+               temperature_status = $5,
+               voltage_status = $6,
+               last_history_at = CASE WHEN $7 THEN NOW() ELSE last_history_at END,
+               history_temperature = CASE WHEN $7 THEN $2 ELSE history_temperature END,
+               history_voltage = CASE WHEN $7 THEN $3 ELSE history_voltage END,
+               updated_at = NOW()
+           WHERE sensor_id = $1`,
+          [
+            sensorId,
+            temperature,
+            voltage ?? null,
+            current ?? null,
+            temperatureStatus,
+            voltageStatus,
+            stored,
+          ],
+        )
+
+        await client.query("COMMIT")
+      } catch (storageError) {
+        await client.query("ROLLBACK")
+        throw storageError
+      } finally {
+        client.release()
       }
-
-      stored = storageReasons.length > 0
-
-      if (stored) {
-        const insertResult =
-          await client.query<{ id: number }>(
-            `INSERT INTO sensor_readings
-               (sensor_id, temperature, voltage, current, recorded_at)
-             VALUES ($1, $2, $3, $4, NOW())
-             RETURNING id`,
-            [
-              sensorId,
-              temperature,
-              voltage ?? null,
-              current ?? null,
-            ],
-          )
-
-        readingId = insertResult.rows[0].id
-      }
-
-      await client.query(
-        `UPDATE sensor_latest_state
-         SET temperature = $2,
-             voltage = $3,
-             current = $4,
-             last_seen = NOW(),
-             temperature_status = $5,
-             voltage_status = $6,
-             last_history_at = CASE WHEN $7 THEN NOW() ELSE last_history_at END,
-             history_temperature = CASE WHEN $7 THEN $2 ELSE history_temperature END,
-             history_voltage = CASE WHEN $7 THEN $3 ELSE history_voltage END,
-             updated_at = NOW()
-         WHERE sensor_id = $1`,
-        [
-          sensorId,
-          temperature,
-          voltage ?? null,
-          current ?? null,
-          temperatureStatus,
-          voltageStatus,
-          stored,
-        ],
-      )
-
-      await client.query("COMMIT")
-    } catch (storageError) {
-      await client.query("ROLLBACK")
-      throw storageError
-    } finally {
-      client.release()
     }
 
     console.log(
