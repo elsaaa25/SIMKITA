@@ -20,8 +20,10 @@
 Server Room Monitoring System adalah aplikasi web untuk memantau kondisi ruang server secara hampir real-time. Sistem menerima pembacaan sensor dari ESP32 melalui API HTTPS, menyimpan data ke PostgreSQL Supabase, menampilkan kondisi terkini pada dashboard, menyediakan grafik dan riwayat, serta membuat peringatan ketika suhu atau tegangan melewati batas yang telah ditentukan.
 
 Sistem mendukung **dua lokasi sensor**:
-- **TEMP-L4** — Lantai 4 (Ruang Server): sensor suhu, tegangan, dan arus.
+- **TEMP-L4** — Lantai 4 (Ruang Server): sensor suhu dan tegangan.
 - **TEMP-L5** — Lantai 5 (Ruang ATC): sensor suhu.
+
+> **Catatan operasional:** monitoring arus disembunyikan sementara dari antarmuka dan seluruh hasil ekspor karena perangkat pengukur arus belum tersedia. Kolom database dan kontrak API tetap dipertahankan untuk kompatibilitas perangkat di masa depan.
 
 Fungsi utama produk adalah monitoring, pencatatan, visualisasi, peringatan, notifikasi email, dan pengarsipan data secara otomatis.
 
@@ -46,7 +48,7 @@ Sistem ini menyediakan satu pusat monitoring yang mudah diakses melalui komputer
 ### 3.1 Tujuan Utama
 
 1. Menampilkan kondisi suhu Lantai 4 dan Lantai 5 secara hampir real-time.
-2. Menampilkan kondisi tegangan dan arus Lantai 4 secara hampir real-time.
+2. Menampilkan kondisi tegangan Lantai 4 secara hampir real-time.
 3. Memberikan peringatan dan notifikasi email saat suhu atau tegangan melewati batas.
 4. Menyediakan grafik perubahan suhu dan tegangan yang mudah dibaca.
 5. Menyediakan riwayat pembacaan sensor dalam zona waktu WIB.
@@ -73,7 +75,6 @@ Sistem ini menyediakan satu pusat monitoring yang mudah diakses melalui komputer
 - Monitoring suhu Lantai 4 (`TEMP-L4`);
 - Monitoring suhu Lantai 5 (`TEMP-L5`);
 - Monitoring tegangan Lantai 4 (sensor ZMPT101B);
-- Monitoring arus Lantai 4 (sensor ACS712);
 - Alert suhu: Waspada dan Bahaya, dengan eskalasi otomatis;
 - Alert tegangan: Drop dan Surge, dengan level Waspada/Bahaya;
 - Notifikasi email ke semua pengguna aktif saat peringatan dibuat;
@@ -92,6 +93,8 @@ Sistem ini menyediakan satu pusat monitoring yang mudah diakses melalui komputer
 - Dukungan dark mode dan light mode.
 
 ### 4.2 Dalam Pengembangan / Direncanakan
+
+- Aktivasi kembali monitoring arus Lantai 4 setelah perangkat pengukur arus tersedia;
 
 - Pencatatan data berbasis perubahan suhu (*change-based monitoring*);
 - *Heartbeat* perangkat terpisah dari data historis;

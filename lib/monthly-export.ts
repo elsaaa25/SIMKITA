@@ -454,11 +454,6 @@ export async function createMonthlyExcel({
       key: "voltage",
       width: 16,
     },
-    {
-      header: "Arus (A)",
-      key: "current",
-      width: 16,
-    },
   ]
 
   styleHeader(dataSheet)
@@ -478,7 +473,6 @@ export async function createMonthlyExcel({
         temperatureL5:
           row.temperatureL5,
         voltage: row.voltage,
-        current: row.current,
       })
     },
   )
@@ -487,12 +481,11 @@ export async function createMonthlyExcel({
     "temperatureL4",
     "temperatureL5",
     "voltage",
-    "current",
   ])
 
   dataSheet.autoFilter = {
     from: "A1",
-    to: "F1",
+    to: "E1",
   }
 
   /*
@@ -574,21 +567,6 @@ export async function createMonthlyExcel({
       width: 22,
     },
 
-    {
-      header: "Rata-rata Arus (A)",
-      key: "currentAverage",
-      width: 20,
-    },
-    {
-      header: "Minimum Arus (A)",
-      key: "currentMinimum",
-      width: 20,
-    },
-    {
-      header: "Maksimum Arus (A)",
-      key: "currentMaximum",
-      width: 20,
-    },
   ]
 
   styleHeader(summarySheet)
@@ -630,13 +608,6 @@ export async function createMonthlyExcel({
         getMinimum(summary.voltage),
       voltageMaximum:
         getMaximum(summary.voltage),
-
-      currentAverage:
-        getAverage(summary.current),
-      currentMinimum:
-        getMinimum(summary.current),
-      currentMaximum:
-        getMaximum(summary.current),
     })
   }
 
@@ -650,14 +621,11 @@ export async function createMonthlyExcel({
     "voltageAverage",
     "voltageMinimum",
     "voltageMaximum",
-    "currentAverage",
-    "currentMinimum",
-    "currentMaximum",
   ])
 
   summarySheet.autoFilter = {
     from: "A1",
-    to: "N1",
+    to: "K1",
   }
 
   const output =
@@ -794,11 +762,6 @@ export async function createMonthlyExcelFile({
       key: "voltage",
       width: 16,
     },
-    {
-      header: "Arus (A)",
-      key: "current",
-      width: 16,
-    },
   ]
 
   styleHeader(dataSheet)
@@ -806,12 +769,11 @@ export async function createMonthlyExcelFile({
     "temperatureL4",
     "temperatureL5",
     "voltage",
-    "current",
   ])
 
   dataSheet.autoFilter = {
     from: "A1",
-    to: "F1",
+    to: "E1",
   }
 
   dataSheet.getRow(1).commit()
@@ -845,7 +807,6 @@ export async function createMonthlyExcelFile({
         temperatureL5:
           currentMeasurement.temperatureL5,
         voltage: currentMeasurement.voltage,
-        current: currentMeasurement.current,
       })
       .commit()
 
@@ -904,13 +865,6 @@ export async function createMonthlyExcelFile({
       currentMeasurement.voltage = voltage
     }
 
-    const current =
-      toFiniteNumber(databaseRow.current)
-
-    if (current !== null) {
-      readingCount += 1
-      currentMeasurement.current = current
-    }
   }
 
   commitMeasurement()
@@ -985,21 +939,6 @@ export async function createMonthlyExcelFile({
       key: "voltageMaximum",
       width: 22,
     },
-    {
-      header: "Rata-rata Arus (A)",
-      key: "currentAverage",
-      width: 20,
-    },
-    {
-      header: "Minimum Arus (A)",
-      key: "currentMinimum",
-      width: 20,
-    },
-    {
-      header: "Maksimum Arus (A)",
-      key: "currentMaximum",
-      width: 20,
-    },
   ]
 
   styleHeader(summarySheet)
@@ -1013,14 +952,11 @@ export async function createMonthlyExcelFile({
     "voltageAverage",
     "voltageMinimum",
     "voltageMaximum",
-    "currentAverage",
-    "currentMinimum",
-    "currentMaximum",
   ])
 
   summarySheet.autoFilter = {
     from: "A1",
-    to: "N1",
+    to: "K1",
   }
 
   summarySheet.getRow(1).commit()
@@ -1053,12 +989,6 @@ export async function createMonthlyExcelFile({
           getMinimum(summary.voltage),
         voltageMaximum:
           getMaximum(summary.voltage),
-        currentAverage:
-          getAverage(summary.current),
-        currentMinimum:
-          getMinimum(summary.current),
-        currentMaximum:
-          getMaximum(summary.current),
       })
       .commit()
   }

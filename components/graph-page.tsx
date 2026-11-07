@@ -1036,7 +1036,6 @@ export function GraphPage() {
       "Suhu Lantai 4 (C)",
       "Suhu Lantai 5 (C)",
       "Tegangan (V)",
-      "Arus (A)",
     ].join(",")
 
     const rows = data.map(row =>
@@ -1052,7 +1051,6 @@ export function GraphPage() {
         row.temperatureL4 ?? "",
         row.temperatureL5 ?? "",
         row.voltage ?? "",
-        row.current ?? "",
       ].join(","),
     )
 
@@ -1090,7 +1088,7 @@ export function GraphPage() {
   return (
     <AppShell
       title="Grafik Monitoring"
-      description="Analisis suhu, tegangan, dan arus"
+      description="Analisis suhu dan tegangan"
       actions={
         <Button
           type="button"
@@ -1109,7 +1107,7 @@ export function GraphPage() {
         </Button>
       }
     >
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryCard
           icon={Thermometer}
           label="Suhu Lantai 4"
@@ -1179,14 +1177,6 @@ export function GraphPage() {
           }
         />
 
-        <SummaryCard
-          icon={Activity}
-          label="Arus"
-          value="--"
-          description="Sensor belum tersedia"
-          color="violet"
-          available={false}
-        />
       </section>
 
       <Card className="mt-4 shadow-sm">
@@ -1321,19 +1311,6 @@ export function GraphPage() {
           emptyMessage="Belum ada data tegangan pada periode ini."
         />
 
-        <MetricChart
-          data={data}
-          period={period}
-          dataKey="current"
-          title="Arus"
-          description="Sensor arus belum terpasang"
-          unit=" A"
-          decimals={2}
-          stroke="#8b5cf6"
-          gradientId="current-fill"
-          loading={loading}
-          emptyMessage="Data akan tampil setelah sensor arus terhubung."
-        />
       </section>
     </AppShell>
   )

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { CalendarDays, ChevronLeft, ChevronRight, Cpu, Download, Filter, History, Search, Thermometer } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Filter, History, Search, Thermometer } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -112,9 +112,9 @@ export function HistoryPage() {
 
   const exportCsv = () => {
     if (!filtered.length) return
-    const headers = "Waktu Perekaman,Sensor ID,Suhu (C),Tegangan (V),Arus (A),Status\n"
+    const headers = "Waktu Perekaman,Sensor ID,Suhu (C),Tegangan (V),Status\n"
     const rows = filtered.map(item =>
-      `"${item.recordedAt}","${item.sensorId}",${item.temperature},${item.voltage ?? '""'},${item.current ?? '""'},"${getStatus(item.temperature, item.sensorId)}"`
+      `"${item.recordedAt}","${item.sensorId}",${item.temperature},${item.voltage ?? '""'},"${getStatus(item.temperature, item.sensorId)}"`
     ).join("\n")
     const url = URL.createObjectURL(new Blob([headers + rows], { type: "text/csv;charset=utf-8;" }))
     const a = document.createElement("a")
@@ -231,7 +231,6 @@ export function HistoryPage() {
                       <TableHead>Sensor ID</TableHead>
                       <TableHead>Suhu (°C)</TableHead>
                       <TableHead>Tegangan (V)</TableHead>
-                      <TableHead>Arus (A)</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="pr-6">Keterangan</TableHead>
                     </TableRow>
@@ -254,9 +253,6 @@ export function HistoryPage() {
                           <TableCell className="text-muted-foreground">
                             {item.voltage != null ? `${Number(Number(item.voltage).toFixed(1))} V` : "-- V"}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {item.current != null ? `${Number(Number(item.current).toFixed(2))} A` : "-- A"}
-                          </TableCell>
                           <TableCell><StatusBadge status={status} /></TableCell>
                           <TableCell className="pr-6 text-xs text-muted-foreground">
                             {status === "Normal" ? "Kondisi stabil & aman" : status === "Waspada" ? "Suhu mendekati batas kritis" : "Suhu berbahaya, periksa AC!"}
@@ -265,7 +261,7 @@ export function HistoryPage() {
                       )
                     }) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
                           Tidak ada data untuk tanggal ini atau filter yang dipilih.
                         </TableCell>
                       </TableRow>

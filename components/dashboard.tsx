@@ -73,7 +73,7 @@ type ChartTab =
 type ChartMetric = Exclude<ChartTab, "all">
 
 const FLOOR_CHART_METRICS: Record<Floor, ChartMetric[]> = {
-  "4": ["suhu", "tegangan", "arus"],
+  "4": ["suhu", "tegangan"],
   "5": ["suhu"],
 }
 
@@ -1580,46 +1580,6 @@ export function Dashboard() {
                       iconColor: "text-amber-600 dark:text-amber-400",
                     },
                   },
-                  {
-                    metric: {
-                      icon: Activity,
-                      label: "Arus & Beban Listrik",
-                      value: currentL4 !== null
-                        ? `${currentL4.toFixed(2)} A`
-                        : "-- A",
-                      detail: currentL4 !== null
-                        ? `Kapasitas maksimum ${CURRENT_CAPACITY} A`
-                        : "Menunggu data",
-                      valueClassName: currentL4 !== null
-                        ? currentL4 <= CURRENT_CAPACITY
-                          ? "text-cyan-600 dark:text-cyan-400"
-                          : "text-rose-600 dark:text-rose-400"
-                        : "text-muted-foreground",
-                      iconBgColor: "bg-cyan-500/10",
-                      iconColor: "text-cyan-600 dark:text-cyan-400",
-                    },
-                    condition: {
-                      icon: ShieldCheck,
-                      label: "Kondisi Arus L4",
-                      value: currentL4 === null
-                        ? "-"
-                        : currentL4 <= CURRENT_CAPACITY
-                          ? "AMAN"
-                          : "BAHAYA",
-                      detail: currentL4 === null
-                        ? "Sensor arus terputus"
-                        : currentL4 <= CURRENT_CAPACITY
-                          ? "Arus di bawah kapasitas"
-                          : "Arus melebihi kapasitas",
-                      valueClassName: currentL4 === null
-                        ? "text-muted-foreground"
-                        : currentL4 <= CURRENT_CAPACITY
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-rose-600 dark:text-rose-400",
-                      iconBgColor: "bg-cyan-500/10",
-                      iconColor: "text-cyan-600 dark:text-cyan-400",
-                    },
-                  },
                 ]}
                 sensor={{
                   icon: Radio,
@@ -2634,9 +2594,6 @@ export function Dashboard() {
                             Tegangan (V)
                           </TableHead>
 
-                          <TableHead>
-                            Arus (A)
-                          </TableHead>
                         </>
                       )}
 
@@ -2687,11 +2644,6 @@ export function Dashboard() {
                                       : "-- V"}
                                   </TableCell>
 
-                                  <TableCell className="text-muted-foreground">
-                                    {row.current !== null && row.current !== undefined
-                                      ? `${Number(Number(row.current).toFixed(2))} A`
-                                      : "-- A"}
-                                  </TableCell>
                                 </>
                               )}
 
@@ -2896,7 +2848,7 @@ function CombinedTelemetryChart({
               </CardTitle>
               <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                 {floor === "4"
-                  ? "Data suhu, tegangan, dan arus"
+                  ? "Data suhu dan tegangan"
                   : "Data suhu ruang ATC"} · {periodConfigs[period].label}
               </p>
             </div>
@@ -2912,7 +2864,6 @@ function CombinedTelemetryChart({
                   tabs={[
                     { value: "suhu", label: "Suhu", icon: Thermometer },
                     { value: "tegangan", label: "Tegangan", icon: Zap },
-                    { value: "arus", label: "Arus", icon: Activity },
                   ]}
                   value={effectiveChartTab}
                   onValueChange={value =>
