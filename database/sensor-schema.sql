@@ -12,6 +12,26 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
 CREATE INDEX IF NOT EXISTS readings_sensor_time_idx
   ON sensor_readings (sensor_id, recorded_at DESC);
 
+-- Satu baris per sensor untuk nilai realtime dan heartbeat.
+-- Tabel ini selalu diperbarui setiap paket ESP32, sedangkan
+-- sensor_readings hanya menyimpan perubahan penting/snapshot.
+CREATE TABLE IF NOT EXISTS sensor_latest_state (
+  sensor_id                  VARCHAR(50)   PRIMARY KEY,
+  temperature                NUMERIC(5, 2) NOT NULL,
+  voltage                    NUMERIC(6, 2),
+  current                    NUMERIC(6, 3),
+  last_seen                  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  last_history_at            TIMESTAMPTZ,
+  history_temperature        NUMERIC(5, 2),
+  history_voltage            NUMERIC(6, 2),
+  temperature_status         VARCHAR(20)   NOT NULL DEFAULT 'Normal',
+  voltage_status             VARCHAR(20)   NOT NULL DEFAULT 'Normal',
+  updated_at                 TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS sensor_latest_state_last_seen_idx
+  ON sensor_latest_state (last_seen DESC);
+
 -- ============================================================
 -- Jika tabel sensor_readings sudah ada tapi belum punya kolom
 -- current (kolom ditambahkan belakangan), jalankan perintah

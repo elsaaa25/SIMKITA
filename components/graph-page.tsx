@@ -607,17 +607,6 @@ function getHistoryUrl(
   return `/api/sensor/history?${searchParams.toString()}`
 }
 
-function getLatestReadingUrl(
-  sensorId: string,
-): string {
-  const searchParams = new URLSearchParams({
-    sensorId,
-    limit: "1",
-  })
-
-  return `/api/sensor/history?${searchParams.toString()}`
-}
-
 async function readHistoryResponse(
   response: Response,
 ): Promise<HistoryResponse> {
@@ -860,33 +849,18 @@ export function GraphPage() {
       latestRequestRunning.current = true
 
       try {
-        const responses =
-          await Promise.all(
-            SENSOR_IDS.map(sensorId =>
-              fetch(
-                getLatestReadingUrl(
-                  sensorId,
-                ),
-                {
-                  cache: "no-store",
-                },
-              ),
-            ),
-          )
+        const response = await fetch(
+          "/api/sensor/latest",
+          { cache: "no-store" },
+        )
 
-        const results =
-          await Promise.all(
-            responses.map(
-              readHistoryResponse,
-            ),
-          )
+        const result =
+          await readHistoryResponse(response)
 
         const latestReadings =
-          results.flatMap(result =>
-            result.data?.[0]
-              ? [result.data[0]]
-              : [],
-          )
+          Array.isArray(result.data)
+            ? result.data
+            : []
 
         const mappedReadings =
           latestReadings

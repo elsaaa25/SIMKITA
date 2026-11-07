@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         voltageMin ?? 200,
         voltageMax ?? 240,
         refreshInterval || 4,
-        offlineTimeout || 30,
+        offlineTimeout || 60,
         sensorName || "Sensor Ruang Server",
         sensorId || "esp32-01",
         browserNotification !== undefined ? browserNotification : true,

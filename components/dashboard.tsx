@@ -1006,31 +1006,36 @@ export function Dashboard() {
         true
 
       try {
-        const searchParams =
+        const historySearchParams =
           new URLSearchParams({
             limit: "10",
           })
 
-        const response = await fetch(
-          `/api/sensor/history?${searchParams.toString()}`,
-          {
-            cache: "no-store",
-          },
-        )
+        const [latestResponse, historyResponse] =
+          await Promise.all([
+            fetch("/api/sensor/latest", {
+              cache: "no-store",
+            }),
+            fetch(
+              `/api/sensor/history?${historySearchParams.toString()}`,
+              { cache: "no-store" },
+            ),
+          ])
 
-        const readings =
-          await readHistoryResponse(
-            response,
-          )
+        const [latest, recentHistory] =
+          await Promise.all([
+            readHistoryResponse(latestResponse),
+            readHistoryResponse(historyResponse),
+          ])
 
-        setLatestReadings(readings)
+        setLatestReadings(latest)
 
-        if (readings.length > 0) {
+        if (recentHistory.length > 0) {
           setHistoryReadings(
             previous =>
               mergeHistoryReadings({
                 previous,
-                incoming: readings,
+                incoming: recentHistory,
                 hours: periodConfigs["24"].hours,
                 limitPerSensor:
                   periodConfigs["24"].limit,

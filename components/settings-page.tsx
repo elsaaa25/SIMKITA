@@ -9,10 +9,8 @@ import {
   Bell,
   Check,
   Clock3,
-  Radio,
   RotateCcw,
   Save,
-  Server,
   Thermometer,
   Volume2,
   Zap,
@@ -686,56 +684,6 @@ export function SettingsPage() {
           </SettingsCard>
 
           <SettingsCard
-            icon={Radio}
-            title="Perangkat Sensor ESP32"
-            description="Pengaturan identitas sensor utama untuk validasi payload."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nama Perangkat">
-                <TextInput
-                  value={settings.sensorName}
-                  onChange={value =>
-                    update("sensorName", value)
-                  }
-                />
-              </Field>
-
-              <Field
-                label="Sensor ID Utama"
-                hint="Harus sama dengan nama ID sensor di hardware ESP32"
-              >
-                <TextInput
-                  value={settings.sensorId}
-                  onChange={value =>
-                    update("sensorId", value)
-                  }
-                  mono
-                />
-              </Field>
-            </div>
-
-            <Separator className="my-5" />
-
-            <div className="flex items-center">
-              <div className="grid size-10 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-                <Server className="size-5" />
-              </div>
-              <div className="ml-3">
-                <b className="block text-sm text-foreground">
-                  Koneksi Database Cloud
-                </b>
-                <span className="text-xs text-muted-foreground">
-                  Penyimpanan Terpusat
-                  Supabase
-                </span>
-              </div>
-              <Badge className="ml-auto bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-950/60">
-                Aktif
-              </Badge>
-            </div>
-          </SettingsCard>
-
-          <SettingsCard
             icon={Bell}
             title="Pusat Peringatan & Suara"
             description="Aktifkan notifikasi browser atau alarm suara saat ada kejadian suhu baru."
@@ -889,27 +837,6 @@ function NumberInput({
         {suffix}
       </span>
     </div>
-  )
-}
-
-function TextInput({
-  mono = false,
-  value,
-  onChange,
-}: {
-  mono?: boolean
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <input
-      value={value}
-      onChange={event =>
-        onChange(event.target.value)
-      }
-      className={`h-10 w-full rounded-xl border border-border bg-card px-3 font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/20 ${mono ? "font-mono text-sm" : ""
-        }`}
-    />
   )
 }
 

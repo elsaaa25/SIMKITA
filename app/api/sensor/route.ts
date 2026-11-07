@@ -62,6 +62,16 @@ type DbSettings = {
   voltageMax: number
 }
 
+type SensorState = {
+  historyTemperature: number | string | null
+  lastHistoryAt: Date | string | null
+  temperatureStatus: string
+  voltageStatus: string
+}
+
+const TEMPERATURE_CHANGE_THRESHOLD = 0.2
+const HISTORY_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000
+
 // Default threshold jika tabel monitoring_settings kosong
 const DEFAULT_SETTINGS: DbSettings = {
   warningTemperature: 27,
@@ -84,7 +94,7 @@ function getAlertLevel(
   dangerTemperature: number,
 ): AlertLevel | null {
   if (temperature >= dangerTemperature) return "Bahaya"
-  if (temperature > warningTemperature) return "Waspada"
+  if (temperature >= warningTemperature) return "Waspada"
   return null
 }
 
@@ -197,7 +207,7 @@ async function getSettings(): Promise<DbSettings> {
 
 async function handleTemperatureAlert(
   sensorId: string,
-  readingId: number,
+  readingId: number | null,
   temperature: number,
   warningTemp: number,
   dangerTemp: number,
@@ -272,7 +282,7 @@ async function handleTemperatureAlert(
 
 async function handleVoltageAlert(
   sensorId: string,
-  readingId: number,
+  readingId: number | null,
   voltage: number,
   voltageMin: number,
   voltageMax: number,
@@ -416,18 +426,7 @@ export async function POST(request: Request) {
 
     const { sensorId, temperature, voltage, current } = result.data
 
-    // 4. Simpan data ke sensor_readings
-    const insertResult = await db.query<{ id: number }>(
-      `INSERT INTO sensor_readings (sensor_id, temperature, voltage, current, recorded_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING id`,
-      [sensorId, temperature, voltage ?? null, current ?? null],
-    )
-
-    const readingId = insertResult.rows[0].id
-    console.log(`[Sensor] Data disimpan: id=${readingId} sensorId=${sensorId} temp=${temperature} volt=${voltage ?? "-"} current=${current ?? "-"}`)
-
-    // 5. Ambil threshold dari monitoring_settings
+    // 4. Ambil threshold sebelum menentukan perubahan status.
     const settings = await getSettings()
 
     const warningTemp =
@@ -440,8 +439,165 @@ export async function POST(request: Request) {
         ? settings.dangerTemperatureL5
         : settings.dangerTemperature
 
-    // 6. Proses alert suhu dan tegangan secara paralel
-    //    (tidak await — jangan blokir response ke ESP32 jika email lambat)
+    const temperatureStatus =
+      getAlertLevel(
+        temperature,
+        warningTemp,
+        dangerTemp,
+      ) ?? "Normal"
+
+    const voltageStatus =
+      sensorId === "TEMP-L4" &&
+      typeof voltage === "number"
+        ? getVoltageAnomalyType(
+            voltage,
+            settings.voltageMin,
+            settings.voltageMax,
+          ) ?? "Normal"
+        : "Unavailable"
+
+    // 5. Selalu perbarui heartbeat/latest-state. Riwayat hanya
+    //    ditambah saat ada perubahan penting atau snapshot 5 menit.
+    const client = await db.connect()
+    let readingId: number | null = null
+    let stored = false
+    const storageReasons: string[] = []
+
+    try {
+      await client.query("BEGIN")
+
+      await client.query(
+        `INSERT INTO sensor_latest_state
+           (sensor_id, temperature, voltage, current, last_seen,
+            temperature_status, voltage_status, updated_at)
+         VALUES ($1, $2, $3, $4, NOW(), $5, $6, NOW())
+         ON CONFLICT (sensor_id) DO NOTHING`,
+        [
+          sensorId,
+          temperature,
+          voltage ?? null,
+          current ?? null,
+          temperatureStatus,
+          voltageStatus,
+        ],
+      )
+
+      const stateResult = await client.query<SensorState>(
+        `SELECT
+           history_temperature AS "historyTemperature",
+           last_history_at AS "lastHistoryAt",
+           temperature_status AS "temperatureStatus",
+           voltage_status AS "voltageStatus"
+         FROM sensor_latest_state
+         WHERE sensor_id = $1
+         FOR UPDATE`,
+        [sensorId],
+      )
+
+      const state = stateResult.rows[0]
+      const historyTemperature =
+        state.historyTemperature === null
+          ? null
+          : Number(state.historyTemperature)
+      const lastHistoryAt = state.lastHistoryAt
+        ? new Date(state.lastHistoryAt).getTime()
+        : null
+
+      if (
+        historyTemperature === null ||
+        lastHistoryAt === null
+      ) {
+        storageReasons.push("first-reading")
+      } else {
+        if (
+          Math.abs(
+            temperature - historyTemperature,
+          ) >= TEMPERATURE_CHANGE_THRESHOLD
+        ) {
+          storageReasons.push("temperature-change")
+        }
+
+        if (
+          state.temperatureStatus !==
+          temperatureStatus
+        ) {
+          storageReasons.push("temperature-status")
+        }
+
+        if (
+          state.voltageStatus !== voltageStatus
+        ) {
+          storageReasons.push("voltage-status")
+        }
+
+        if (
+          Date.now() - lastHistoryAt >=
+          HISTORY_SNAPSHOT_INTERVAL_MS
+        ) {
+          storageReasons.push("periodic-snapshot")
+        }
+      }
+
+      stored = storageReasons.length > 0
+
+      if (stored) {
+        const insertResult =
+          await client.query<{ id: number }>(
+            `INSERT INTO sensor_readings
+               (sensor_id, temperature, voltage, current, recorded_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             RETURNING id`,
+            [
+              sensorId,
+              temperature,
+              voltage ?? null,
+              current ?? null,
+            ],
+          )
+
+        readingId = insertResult.rows[0].id
+      }
+
+      await client.query(
+        `UPDATE sensor_latest_state
+         SET temperature = $2,
+             voltage = $3,
+             current = $4,
+             last_seen = NOW(),
+             temperature_status = $5,
+             voltage_status = $6,
+             last_history_at = CASE WHEN $7 THEN NOW() ELSE last_history_at END,
+             history_temperature = CASE WHEN $7 THEN $2 ELSE history_temperature END,
+             history_voltage = CASE WHEN $7 THEN $3 ELSE history_voltage END,
+             updated_at = NOW()
+         WHERE sensor_id = $1`,
+        [
+          sensorId,
+          temperature,
+          voltage ?? null,
+          current ?? null,
+          temperatureStatus,
+          voltageStatus,
+          stored,
+        ],
+      )
+
+      await client.query("COMMIT")
+    } catch (storageError) {
+      await client.query("ROLLBACK")
+      throw storageError
+    } finally {
+      client.release()
+    }
+
+    console.log(
+      stored
+        ? `[Sensor] Riwayat disimpan: id=${readingId} sensorId=${sensorId} alasan=${storageReasons.join(",")}`
+        : `[Sensor] Heartbeat diperbarui tanpa riwayat baru: sensorId=${sensorId}`,
+    )
+
+    // 6. Pencatatan alarm harus selesai sebelum response dikirim.
+    //    Ini mencegah pekerjaan terputus setelah function Vercel selesai.
     const alertPromises: Promise<void>[] = [
       handleTemperatureAlert(sensorId, readingId, temperature, warningTemp, dangerTemp),
     ]
@@ -453,20 +609,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Jalankan alert handler di background, tidak memblokir response
-    Promise.allSettled(alertPromises).then((results) => {
-      results.forEach((r) => {
-        if (r.status === "rejected") {
-          console.error("[Alert] Error di alert handler:", r.reason)
-        }
-      })
-    })
+    await Promise.all(alertPromises)
 
     // 7. Response sukses ke ESP32
     return NextResponse.json({
       success: true,
       readingId,
-      message: "Data sensor berhasil disimpan",
+      stored,
+      storageReasons,
+      message: stored
+        ? "Data sensor disimpan sebagai riwayat"
+        : "Heartbeat dan nilai terbaru berhasil diperbarui",
     })
   } catch (error) {
     console.error("Gagal menyimpan data sensor:", error)

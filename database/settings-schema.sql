@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS monitoring_settings (
   voltage_min NUMERIC(5, 2) NOT NULL DEFAULT 200.00,
   voltage_max NUMERIC(5, 2) NOT NULL DEFAULT 240.00,
   refresh_interval INT NOT NULL DEFAULT 4,
-  offline_timeout INT NOT NULL DEFAULT 30,
+  offline_timeout INT NOT NULL DEFAULT 60,
   sensor_name VARCHAR(100) NOT NULL DEFAULT 'Sensor Ruang Server',
   sensor_id VARCHAR(50) NOT NULL DEFAULT 'esp32-01',
   browser_notification BOOLEAN NOT NULL DEFAULT TRUE,
@@ -26,6 +26,6 @@ INSERT INTO monitoring_settings (
 )
 VALUES (
   'global', 27.00, 30.00, 27.00, 30.00, 200.00, 240.00, 4, 
-  30, 'Sensor Ruang Server', 'esp32-01', TRUE, FALSE
+  60, 'Sensor Ruang Server', 'esp32-01', TRUE, FALSE
 )
 ON CONFLICT (id) DO NOTHING;
