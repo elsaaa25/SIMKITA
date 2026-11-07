@@ -554,9 +554,15 @@ function getChartTimeline(
   const periodStart =
     latestTimestamp -
     periodConfigs[period].hours * 60 * 60 * 1000
+  const firstDataTimestamp = data.find(
+    reading => Number.isFinite(reading.timestamp),
+  )?.timestamp
+  const domainStart = firstDataTimestamp === undefined
+    ? periodStart
+    : Math.max(periodStart, firstDataTimestamp)
   const firstRegularTick =
     Math.ceil(
-      (periodStart + timezoneOffset) /
+      (domainStart + timezoneOffset) /
       interval,
     ) * interval - timezoneOffset
   const lastRegularTick =
@@ -589,7 +595,7 @@ function getChartTimeline(
   }
 
   return {
-    domain: [periodStart, lastRegularTick],
+    domain: [domainStart, lastRegularTick],
     ticks,
     latestTimestamp,
   }
@@ -3013,6 +3019,7 @@ function CombinedTelemetryChart({
                     scale="time"
                     domain={timeline.domain}
                     ticks={timeline.ticks}
+                    padding={{ left: 8, right: 8 }}
                     interval={0}
                     axisLine={false}
                     tickLine={false}
