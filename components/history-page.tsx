@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { defaultMonitoringSettings, type MonitoringSettings } from "@/lib/monitoring-settings"
 import { AppShell } from "@/components/app-shell"
 import { AnimatedTabsNoIcon } from "@/components/shadcn-space/tabs/tabs-08"
+import { downloadCsv, generateSensorCsv } from "@/lib/sensor-csv"
 
 type Status = "Normal" | "Waspada" | "Bahaya"
 type Reading = {
@@ -112,16 +113,16 @@ export function HistoryPage() {
 
   const exportCsv = () => {
     if (!filtered.length) return
-    const headers = "Waktu Perekaman,Sensor ID,Suhu (C),Tegangan (V),Status\n"
-    const rows = filtered.map(item =>
-      `"${item.recordedAt}","${item.sensorId}",${item.temperature},${item.voltage ?? '""'},"${getStatus(item.temperature, item.sensorId)}"`
-    ).join("\n")
-    const url = URL.createObjectURL(new Blob([headers + rows], { type: "text/csv;charset=utf-8;" }))
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `riwayat-monitoring-${date || "semua"}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    const csv = generateSensorCsv(
+      filtered.map(item => ({
+        recordedAt: item.recordedAt,
+        sensorId: item.sensorId,
+        temperature: item.temperature,
+        voltage: item.voltage,
+        current: item.current,
+      }))
+    )
+    downloadCsv(`riwayat-monitoring-${date || "semua"}.csv`, csv)
   }
 
   return (

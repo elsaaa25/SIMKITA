@@ -38,6 +38,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { downloadCsv, generateSensorCsv } from "@/lib/sensor-csv"
 
 
 type Period = "1" | "6" | "24" | "168"
@@ -1004,59 +1005,20 @@ export function GraphPage() {
       return
     }
 
-    const header = [
-      "Waktu WIB",
-      "Sensor ID",
-      "Suhu Lantai 4 (C)",
-      "Suhu Lantai 5 (C)",
-      "Tegangan (V)",
-    ].join(",")
-
-    const rows = data.map(row =>
-      [
-        `"${formatCsvDateTime(
-          row.time,
-        )}"`,
-        row.temperatureL4 !== null
-          ? SENSOR_L4
-          : row.temperatureL5 !== null
-            ? SENSOR_L5
-            : "",
-        row.temperatureL4 ?? "",
-        row.temperatureL5 ?? "",
-        row.voltage ?? "",
-      ].join(","),
+    const csv = generateSensorCsv(
+      data.map(row => ({
+        recordedAt: row.time,
+        temperatureL4: row.temperatureL4,
+        temperatureL5: row.temperatureL5,
+        voltage: row.voltage,
+        current: row.current,
+      })),
     )
 
-    const csv = [
-      header,
-      ...rows,
-    ].join("\n")
-
-    const blob = new Blob(
-      [`\uFEFF${csv}`],
-      {
-        type: "text/csv;charset=utf-8",
-      },
+    downloadCsv(
+      `grafik-monitoring-${periodConfigs[period].fileLabel}.csv`,
+      csv,
     )
-
-    const url =
-      URL.createObjectURL(blob)
-
-    const link =
-      document.createElement("a")
-
-    link.href = url
-    link.download =
-      `grafik-monitoring-${periodConfigs[period]
-        .fileLabel
-      }.csv`
-
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-
-    URL.revokeObjectURL(url)
   }
 
   return (
