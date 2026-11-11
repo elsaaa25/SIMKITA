@@ -119,7 +119,6 @@ export function HistoryPage() {
         sensorId: item.sensorId,
         temperature: item.temperature,
         voltage: item.voltage,
-        current: item.current,
       }))
     )
     downloadCsv(`riwayat-monitoring-${date || "semua"}.csv`, csv)

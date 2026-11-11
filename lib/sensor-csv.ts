@@ -15,7 +15,6 @@ type MeasurementBucket = {
   temperatureL4: number | null
   temperatureL5: number | null
   voltage: number | null
-  current: number | null
 }
 
 export function formatWibDateTime(dateInput: Date | number | string): string {
@@ -92,7 +91,6 @@ export function generateSensorCsv(items: SensorCsvInputItem[]): string {
         temperatureL4: null,
         temperatureL5: null,
         voltage: null,
-        current: null,
       }
     }
 
@@ -121,15 +119,10 @@ export function generateSensorCsv(items: SensorCsvInputItem[]): string {
       }
     }
 
-    // Tegangan & Arus
+    // Tegangan
     const voltage = toValidNumber(item.voltage)
     if (voltage !== null) {
       currentBucket.voltage = voltage
-    }
-
-    const current = toValidNumber(item.current)
-    if (current !== null) {
-      currentBucket.current = current
     }
   }
 
@@ -137,14 +130,14 @@ export function generateSensorCsv(items: SensorCsvInputItem[]): string {
     buckets.push(currentBucket)
   }
 
-  // Format kolom persis seperti Sheet "Data Sensor" di ekspor otomatis
+  // Format 5 kolom persis seperti file laporan otomatis:
+  // No., Tanggal dan Waktu (WIB), Suhu Lantai 4 (°C), Suhu Lantai 5 (°C), Tegangan (V)
   const headers = [
     "No.",
     "Tanggal dan Waktu (WIB)",
     "Suhu Lantai 4 (°C)",
     "Suhu Lantai 5 (°C)",
     "Tegangan (V)",
-    "Arus (A)",
   ].join(",")
 
   const rows = buckets.map((bucket, index) => {
@@ -156,10 +149,8 @@ export function generateSensorCsv(items: SensorCsvInputItem[]): string {
       bucket.temperatureL5 !== null ? bucket.temperatureL5.toFixed(2) : ""
     const voltage =
       bucket.voltage !== null ? bucket.voltage.toFixed(2) : ""
-    const current =
-      bucket.current !== null ? bucket.current.toFixed(2) : ""
 
-    return `${no},${timeFormatted},${tempL4},${tempL5},${voltage},${current}`
+    return `${no},${timeFormatted},${tempL4},${tempL5},${voltage}`
   })
 
   return [headers, ...rows].join("\n")
@@ -183,4 +174,3 @@ export function downloadCsv(filename: string, csvContent: string): void {
   link.remove()
   URL.revokeObjectURL(url)
 }
-

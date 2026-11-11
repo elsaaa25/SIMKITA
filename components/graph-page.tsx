@@ -1011,7 +1011,6 @@ export function GraphPage() {
         temperatureL4: row.temperatureL4,
         temperatureL5: row.temperatureL5,
         voltage: row.voltage,
-        current: row.current,
       })),
     )
 
