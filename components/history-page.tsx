@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { defaultMonitoringSettings, type MonitoringSettings } from "@/lib/monitoring-settings"
 import { AppShell } from "@/components/app-shell"
 import { AnimatedTabsNoIcon } from "@/components/shadcn-space/tabs/tabs-08"
-import { downloadCsv, generateSensorCsv } from "@/lib/sensor-csv"
 
 type Status = "Normal" | "Waspada" | "Bahaya"
 type Reading = {
@@ -33,11 +32,42 @@ const formatDate = (value: string) =>
 
 const formatTime = (value: string) =>
   new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Bangkok",
+    timeZone: "Asia/Jakarta",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit"
   }).format(new Date(value))
+
+const WIB_TIME_ZONE = "Asia/Jakarta"
+const EXPORT_BUCKET_MS = 15_000
+
+function toWibExcelDate(value: string): Date {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: WIB_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value))
+
+  const values = Object.fromEntries(
+    parts
+      .filter(part => part.type !== "literal")
+      .map(part => [part.type, Number(part.value)]),
+  )
+
+  return new Date(Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day,
+    values.hour,
+    values.minute,
+    values.second,
+  ))
+}
 
 export function HistoryPage() {
   const [settings, setSettings] = useState<MonitoringSettings>(defaultMonitoringSettings)
@@ -50,6 +80,7 @@ export function HistoryPage() {
   })
   const [readings, setReadings] = useState<Reading[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -111,17 +142,123 @@ export function HistoryPage() {
   const setFilter = (value: "Semua" | Status) => { setStatusFilter(value); setPage(1) }
   const setSensor = (value: "Semua" | "TEMP-L4" | "TEMP-L5") => { setSensorFilter(value); setPage(1) }
 
-  const exportCsv = () => {
-    if (!filtered.length) return
-    const csv = generateSensorCsv(
-      filtered.map(item => ({
-        recordedAt: item.recordedAt,
-        sensorId: item.sensorId,
-        temperature: item.temperature,
-        voltage: item.voltage,
-      }))
-    )
-    downloadCsv(`riwayat-monitoring-${date || "semua"}.csv`, csv)
+  const exportExcel = async () => {
+    if (!filtered.length || exporting) return
+
+    setExporting(true)
+
+    try {
+      const { Workbook } = await import("exceljs")
+      const workbook = new Workbook()
+      workbook.creator = "SIMKITA"
+      workbook.created = new Date()
+
+      const worksheet = workbook.addWorksheet("Data Sensor", {
+        views: [{ state: "frozen", ySplit: 1 }],
+      })
+
+      worksheet.columns = [
+        { header: "No.", key: "number", width: 8 },
+        { header: "Tanggal dan Waktu (WIB)", key: "recordedAt", width: 25 },
+        { header: "Suhu Lantai 4 (°C)", key: "temperatureL4", width: 21 },
+        { header: "Suhu Lantai 5 (°C)", key: "temperatureL5", width: 21 },
+        { header: "Tegangan (V)", key: "voltage", width: 17 },
+      ]
+
+      const groupedRows = new Map<
+        number,
+        {
+          timestamp: number
+          recordedAt: string
+          temperatureL4?: number
+          temperatureL5?: number
+          voltage?: number
+        }
+      >()
+
+      for (const reading of filtered) {
+        const timestamp = new Date(reading.recordedAt).getTime()
+        const bucket = Math.floor(timestamp / EXPORT_BUCKET_MS) * EXPORT_BUCKET_MS
+        const row = groupedRows.get(bucket) ?? {
+          timestamp: bucket,
+          recordedAt: reading.recordedAt,
+        }
+
+        if (reading.sensorId === "TEMP-L4") {
+          row.temperatureL4 = reading.temperature
+          if (reading.voltage !== null) row.voltage = reading.voltage
+        } else if (reading.sensorId === "TEMP-L5") {
+          row.temperatureL5 = reading.temperature
+        }
+
+        groupedRows.set(bucket, row)
+      }
+
+      const rows = [...groupedRows.values()].sort(
+        (first, second) => first.timestamp - second.timestamp,
+      )
+
+      rows.forEach((row, index) => {
+        worksheet.addRow({
+          number: index + 1,
+          recordedAt: toWibExcelDate(row.recordedAt),
+          temperatureL4: row.temperatureL4 ?? null,
+          temperatureL5: row.temperatureL5 ?? null,
+          voltage: row.voltage ?? null,
+        })
+      })
+
+      const header = worksheet.getRow(1)
+      header.height = 34
+      header.font = { bold: true, color: { argb: "FF1F2937" } }
+      header.alignment = { horizontal: "center", vertical: "middle", wrapText: true }
+      header.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE5E7EB" },
+      }
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell({ includeEmpty: true }, cell => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFD1D5DB" } },
+            left: { style: "thin", color: { argb: "FFD1D5DB" } },
+            bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
+            right: { style: "thin", color: { argb: "FFD1D5DB" } },
+          }
+
+          if (rowNumber > 1) {
+            cell.alignment = {
+              horizontal: cell.col === "B" ? "left" : "right",
+              vertical: "middle",
+            }
+          }
+        })
+      })
+
+      worksheet.getColumn("recordedAt").numFmt = "yyyy-mm-dd hh:mm:ss"
+      worksheet.getColumn("temperatureL4").numFmt = "0.00"
+      worksheet.getColumn("temperatureL5").numFmt = "0.00"
+      worksheet.getColumn("voltage").numFmt = "0.00"
+      worksheet.autoFilter = { from: "A1", to: "E1" }
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([new Uint8Array(buffer as ArrayBuffer)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `riwayat-monitoring-${date || "semua"}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Gagal membuat file Excel:", error)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -129,9 +266,11 @@ export function HistoryPage() {
       title="Riwayat Pengukuran"
       description="Telusuri seluruh data log sensor dari database"
       actions={
-        <Button onClick={exportCsv} variant="outline" disabled={!filtered.length}>
+        <Button onClick={exportExcel} variant="outline" disabled={!filtered.length || exporting}>
           <Download className="mr-2 size-4" />
-          <span className="hidden sm:inline">Export CSV</span>
+          <span className="hidden sm:inline">
+            {exporting ? "Membuat Excel..." : "Export Excel"}
+          </span>
         </Button>
       }
     >
