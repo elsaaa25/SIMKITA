@@ -9,6 +9,7 @@ export const runtime = "nodejs"
 const acknowledgeSchema = z.union([
   z.object({
     id: z.number().int().positive(),
+    type: z.enum(["temperature", "voltage"]).optional(),
   }),
   z.object({
     all: z.literal(true),
@@ -34,18 +35,24 @@ export async function GET(request: Request) {
 
     const status = url.searchParams.get("status")
     const level = url.searchParams.get("level")
+    const type = url.searchParams.get("type")
 
     const values: Array<string | number> = []
     const conditions: string[] = []
 
     if (status === "Aktif" || status === "Ditangani") {
       values.push(status)
-      conditions.push(`a.status = $${values.length}`)
+      conditions.push(`status = $${values.length}`)
     }
 
     if (level === "Waspada" || level === "Bahaya") {
       values.push(level)
-      conditions.push(`a.level = $${values.length}`)
+      conditions.push(`level = $${values.length}`)
+    }
+
+    if (type === "temperature" || type === "voltage") {
+      values.push(type)
+      conditions.push(`type = $${values.length}`)
     }
 
     values.push(limit)
@@ -57,23 +64,62 @@ export async function GET(request: Request) {
 
     const result = await db.query(
       `
+        WITH combined_alerts AS (
+          SELECT
+            a.id,
+            'temperature'::text AS "type",
+            a.sensor_id AS "sensorId",
+            a.level,
+            a.status,
+            a.temperature::float8 AS temperature,
+            NULL::float8 AS voltage,
+            a.title,
+            a.detail,
+            a.created_at AS "createdAt",
+            a.acknowledged_at AS "acknowledgedAt",
+            a.resolved_at AS "resolvedAt",
+            u.name AS "handledByName"
+          FROM temperature_alerts a
+          LEFT JOIN users u
+            ON u.id = a.handled_by
+
+          UNION ALL
+
+          SELECT
+            v.id,
+            'voltage'::text AS "type",
+            v.sensor_id AS "sensorId",
+            v.level,
+            v.status,
+            NULL::float8 AS temperature,
+            v.voltage::float8 AS voltage,
+            v.title,
+            v.detail,
+            v.created_at AS "createdAt",
+            v.acknowledged_at AS "acknowledgedAt",
+            v.resolved_at AS "resolvedAt",
+            u.name AS "handledByName"
+          FROM voltage_alerts v
+          LEFT JOIN users u
+            ON u.id = v.handled_by
+        )
         SELECT
-          a.id,
-          a.sensor_id AS "sensorId",
-          a.level,
-          a.status,
-          a.temperature::float8 AS temperature,
-          a.title,
-          a.detail,
-          a.created_at AS "createdAt",
-          a.acknowledged_at AS "acknowledgedAt",
-          a.resolved_at AS "resolvedAt",
-          u.name AS "handledByName"
-        FROM temperature_alerts a
-        LEFT JOIN users u
-          ON u.id = a.handled_by
+          id,
+          "type",
+          "sensorId",
+          level,
+          status,
+          temperature,
+          voltage,
+          title,
+          detail,
+          "createdAt",
+          "acknowledgedAt",
+          "resolvedAt",
+          "handledByName"
+        FROM combined_alerts
         ${where}
-        ORDER BY a.created_at DESC, a.id DESC
+        ORDER BY "createdAt" DESC, id DESC
         LIMIT $${values.length}
       `,
       values,
@@ -129,12 +175,63 @@ export async function PATCH(request: Request) {
     }
 
     const userId = session.user.id
+    let updatedCount = 0
 
-    const result =
-      "id" in parsed.data
-        ? await db.query(
+    if ("id" in parsed.data) {
+      const { id, type } = parsed.data
+
+      if (type === "voltage") {
+        const result = await db.query(
+          `
+            UPDATE voltage_alerts
+            SET
+              status = 'Ditangani',
+              acknowledged_at = COALESCE(acknowledged_at, NOW()),
+              handled_by = COALESCE(handled_by, $2::uuid)
+            WHERE id = $1
+              AND status = 'Aktif'
+            RETURNING id
+          `,
+          [id, userId],
+        )
+        updatedCount = result.rowCount ?? 0
+      } else if (type === "temperature") {
+        const result = await db.query(
+          `
+            UPDATE temperature_alerts
+            SET
+              status = 'Ditangani',
+              acknowledged_at = COALESCE(acknowledged_at, NOW()),
+              handled_by = COALESCE(handled_by, $2::uuid)
+            WHERE id = $1
+              AND status = 'Aktif'
+            RETURNING id
+          `,
+          [id, userId],
+        )
+        updatedCount = result.rowCount ?? 0
+      } else {
+        // Jika type tidak disertakan, coba update suhu terlebih dahulu, lalu tegangan
+        const tempResult = await db.query(
+          `
+            UPDATE temperature_alerts
+            SET
+              status = 'Ditangani',
+              acknowledged_at = COALESCE(acknowledged_at, NOW()),
+              handled_by = COALESCE(handled_by, $2::uuid)
+            WHERE id = $1
+              AND status = 'Aktif'
+            RETURNING id
+          `,
+          [id, userId],
+        )
+
+        if ((tempResult.rowCount ?? 0) > 0) {
+          updatedCount = tempResult.rowCount ?? 0
+        } else {
+          const voltResult = await db.query(
             `
-              UPDATE temperature_alerts
+              UPDATE voltage_alerts
               SET
                 status = 'Ditangani',
                 acknowledged_at = COALESCE(acknowledged_at, NOW()),
@@ -143,28 +240,50 @@ export async function PATCH(request: Request) {
                 AND status = 'Aktif'
               RETURNING id
             `,
-            [parsed.data.id, userId],
+            [id, userId],
           )
-        : await db.query(
-            `
-              UPDATE temperature_alerts
-              SET
-                status = 'Ditangani',
-                acknowledged_at = COALESCE(acknowledged_at, NOW()),
-                handled_by = COALESCE(handled_by, $1::uuid)
-              WHERE status = 'Aktif'
-              RETURNING id
-            `,
-            [userId],
-          )
+          updatedCount = voltResult.rowCount ?? 0
+        }
+      }
+    } else {
+      // Tandai semua peringatan (suhu dan tegangan) sebagai ditangani
+      const [tempRes, voltRes] = await Promise.all([
+        db.query(
+          `
+            UPDATE temperature_alerts
+            SET
+              status = 'Ditangani',
+              acknowledged_at = COALESCE(acknowledged_at, NOW()),
+              handled_by = COALESCE(handled_by, $1::uuid)
+            WHERE status = 'Aktif'
+            RETURNING id
+          `,
+          [userId],
+        ),
+        db.query(
+          `
+            UPDATE voltage_alerts
+            SET
+              status = 'Ditangani',
+              acknowledged_at = COALESCE(acknowledged_at, NOW()),
+              handled_by = COALESCE(handled_by, $1::uuid)
+            WHERE status = 'Aktif'
+            RETURNING id
+          `,
+          [userId],
+        ),
+      ])
+
+      updatedCount = (tempRes.rowCount ?? 0) + (voltRes.rowCount ?? 0)
+    }
 
     return NextResponse.json({
       success: true,
       message:
-        result.rowCount === 0
+        updatedCount === 0
           ? "Tidak ada peringatan aktif yang perlu ditangani."
-          : `${result.rowCount} peringatan berhasil ditandai sebagai ditangani.`,
-      updated: result.rowCount ?? 0,
+          : `${updatedCount} peringatan berhasil ditandai sebagai ditangani.`,
+      updated: updatedCount,
     })
   } catch (error) {
     console.error("Gagal menangani peringatan:", error)

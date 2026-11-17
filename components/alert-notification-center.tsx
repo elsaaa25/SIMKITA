@@ -20,9 +20,11 @@ import {
 
 type ActiveAlert = {
   id: number
+  type?: "temperature" | "voltage"
   level: "Waspada" | "Bahaya"
   status: "Aktif" | "Ditangani"
-  temperature: number
+  temperature: number | null
+  voltage: number | null
   sensorId: string
   title: string
   detail: string
@@ -30,21 +32,25 @@ type ActiveAlert = {
 }
 
 type DangerSoundState = {
-  alertId: number
+  alertKey: string
   playedAt: number
 }
 
 const SEEN_ALERTS_KEY =
-  "server-room-seen-alert-ids-v3"
+  "server-room-seen-alert-ids-v4"
 
 const DANGER_SOUND_STATE_KEY =
-  "server-room-danger-sound-state-v1"
+  "server-room-danger-sound-state-v2"
 
 const MAX_SEEN_IDS = 100
 
 // Alarm berbunyi ulang setiap 30 detik
 // selama peringatan Bahaya masih aktif.
 const DANGER_SOUND_REPEAT_MS = 30_000
+
+function getAlertKey(alert: { id: number; type?: string }): string {
+  return `${alert.type ?? "temperature"}-${alert.id}`
+}
 
 function normalizeSettings(
   data: Partial<MonitoringSettings>,
@@ -91,7 +97,7 @@ function normalizeSettings(
   }
 }
 
-function readSeenAlertIds(): Set<number> {
+function readSeenAlertKeys(): Set<string> {
   try {
     const stored =
       localStorage.getItem(SEEN_ALERTS_KEY)
@@ -101,23 +107,23 @@ function readSeenAlertIds(): Set<number> {
       : []
 
     if (!Array.isArray(parsed)) {
-      return new Set<number>()
+      return new Set<string>()
     }
 
     return new Set(
       parsed
-        .map(Number)
-        .filter(Number.isFinite),
+        .map(String)
+        .filter(Boolean),
     )
   } catch {
-    return new Set<number>()
+    return new Set<string>()
   }
 }
 
-function writeSeenAlertIds(
-  ids: Set<number>,
+function writeSeenAlertKeys(
+  keys: Set<string>,
 ) {
-  const values = Array.from(ids).slice(
+  const values = Array.from(keys).slice(
     -MAX_SEEN_IDS,
   )
 
@@ -141,20 +147,20 @@ function readDangerSoundState():
 
     const parsed = JSON.parse(
       stored,
-    ) as Partial<DangerSoundState>
+    ) as Partial<DangerSoundState> & { alertId?: number | string }
 
-    const alertId = Number(parsed.alertId)
+    const alertKey = String(parsed.alertKey ?? parsed.alertId ?? "")
     const playedAt = Number(parsed.playedAt)
 
     if (
-      !Number.isFinite(alertId) ||
+      !alertKey ||
       !Number.isFinite(playedAt)
     ) {
       return null
     }
 
     return {
-      alertId,
+      alertKey,
       playedAt,
     }
   } catch {
@@ -188,16 +194,21 @@ function showBrowserNotification(
     return false
   }
 
+  const metricDetail =
+    alert.voltage !== null && Number.isFinite(alert.voltage)
+      ? `${alert.voltage.toFixed(1)} V — ${alert.detail}`
+      : alert.temperature !== null && Number.isFinite(alert.temperature)
+        ? `${alert.temperature.toFixed(2)}°C — ${alert.detail}`
+        : alert.detail
+
   const notification = new Notification(
     alert.title,
     {
-      body:
-        `${alert.temperature.toFixed(2)}°C — ` +
-        alert.detail,
+      body: metricDetail,
 
       icon: "/favicon.ico",
 
-      tag: `temperature-alert-${alert.id}`,
+      tag: `${alert.type ?? "temperature"}-alert-${alert.id}`,
     },
   )
 
@@ -300,17 +311,26 @@ export function AlertNotificationCenter() {
 
             id: Number(item.id),
 
-            temperature: Number(
-              item.temperature,
-            ),
+            type: item.type === "voltage" ? "voltage" : "temperature",
+
+            temperature:
+              item.temperature !== null && item.temperature !== undefined
+                ? Number(item.temperature)
+                : null,
+
+            voltage:
+              item.voltage !== null && item.voltage !== undefined
+                ? Number(item.voltage)
+                : null,
           }))
           .filter(
             (item: ActiveAlert) =>
               item.status === "Aktif" &&
               Number.isFinite(item.id) &&
-              Number.isFinite(
-                item.temperature,
-              ),
+              ((item.temperature !== null &&
+                Number.isFinite(item.temperature)) ||
+                (item.voltage !== null &&
+                  Number.isFinite(item.voltage))),
           )
 
         /*
@@ -319,24 +339,24 @@ export function AlertNotificationCenter() {
          * Notifikasi hanya muncul satu kali
          * untuk setiap ID peringatan.
          */
-        const activeIds = new Set(
-          alerts.map(alert => alert.id),
+        const activeKeys = new Set(
+          alerts.map(getAlertKey),
         )
 
-        const seenIds =
-          readSeenAlertIds()
+        const seenKeys =
+          readSeenAlertKeys()
 
         // Hapus ID yang sudah tidak aktif.
-        for (const id of seenIds) {
-          if (!activeIds.has(id)) {
-            seenIds.delete(id)
+        for (const key of seenKeys) {
+          if (!activeKeys.has(key)) {
+            seenKeys.delete(key)
           }
         }
 
         const newAlerts = alerts
           .filter(
             alert =>
-              !seenIds.has(alert.id),
+              !seenKeys.has(getAlertKey(alert)),
           )
           .reverse()
 
@@ -348,14 +368,14 @@ export function AlertNotificationCenter() {
           }
 
           /*
-           * Setelah diperiksa, tandai ID
+           * Setelah diperiksa, tandai key
            * supaya notifikasi browser tidak
            * muncul terus-menerus.
            */
-          seenIds.add(alert.id)
+          seenKeys.add(getAlertKey(alert))
         }
 
-        writeSeenAlertIds(seenIds)
+        writeSeenAlertKeys(seenKeys)
 
         /*
          * BAGIAN ALARM SUARA
@@ -373,13 +393,14 @@ export function AlertNotificationCenter() {
           activeDanger
         ) {
           const currentTime = Date.now()
+          const activeDangerKey = getAlertKey(activeDanger)
 
           const previousState =
             readDangerSoundState()
 
           const isDifferentAlert =
-            previousState?.alertId !==
-            activeDanger.id
+            previousState?.alertKey !==
+            activeDangerKey
 
           const repeatTimeReached =
             !previousState ||
@@ -402,7 +423,7 @@ export function AlertNotificationCenter() {
               )
 
               writeDangerSoundState({
-                alertId: activeDanger.id,
+                alertKey: activeDangerKey,
                 playedAt: currentTime,
               })
             } catch (error) {

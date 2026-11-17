@@ -17,6 +17,7 @@ import {
   Search,
   ShieldAlert,
   Thermometer,
+  Zap,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -40,9 +41,11 @@ type SensorFilter = "Semua" | "Lantai 4" | "Lantai 5"
 
 type AlertItem = {
   id: number
+  type?: "temperature" | "voltage"
   level: Level
   status: AlertStatus
-  temperature: number
+  temperature: number | null
+  voltage: number | null
   sensorId: string
   createdAt: string
   acknowledgedAt: string | null
@@ -164,7 +167,15 @@ export function AlertsPage() {
         ).map((item: AlertItem) => ({
           ...item,
           id: Number(item.id),
-          temperature: Number(item.temperature),
+          type: item.type === "voltage" ? "voltage" : "temperature",
+          temperature:
+            item.temperature !== null && item.temperature !== undefined
+              ? Number(item.temperature)
+              : null,
+          voltage:
+            item.voltage !== null && item.voltage !== undefined
+              ? Number(item.voltage)
+              : null,
         }))
 
         setAlerts(normalized)
@@ -234,6 +245,7 @@ export function AlertsPage() {
         item.title,
         item.detail,
         item.sensorId,
+        item.type === "voltage" ? "tegangan" : "suhu",
         sensorLabel(item.sensorId),
         sensorShortLabel(item.sensorId),
       ]
@@ -271,7 +283,7 @@ export function AlertsPage() {
     item => item.status === "Ditangani",
   ).length
 
-  const acknowledge = async (id: number) => {
+  const acknowledge = async (id: number, type?: "temperature" | "voltage") => {
     setActionId(id)
 
     try {
@@ -280,7 +292,7 @@ export function AlertsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, type }),
       })
       const json = await response.json()
 
@@ -338,7 +350,7 @@ export function AlertsPage() {
   return (
     <AppShell
       title="Peringatan"
-      description="Pantau dan tindak lanjuti peringatan suhu Lantai 4 dan Lantai 5"
+      description="Pantau dan tindak lanjuti peringatan suhu dan tegangan Lantai 4 dan Lantai 5"
       actions={
         <Button
           variant="outline"
@@ -387,8 +399,8 @@ export function AlertsPage() {
           />
           <Summary
             icon={Thermometer}
-            label="Batas Waspada Suhu"
-            value={`L4: ${Number(settings.warningTemperature)}°C / L5: ${Number(settings.warningTemperatureL5 ?? 27)}°C`}
+            label="Batas Parameter"
+            value={`L4: ${Number(settings.warningTemperature)}°C | Volt: ${Number(settings.voltageMin ?? 200)}–${Number(settings.voltageMax ?? 240)}V`}
             color="blue"
           />
         </section>
@@ -488,11 +500,11 @@ export function AlertsPage() {
             ) : filtered.length > 0 ? (
               filtered.map(item => (
                 <AlertRow
-                  key={item.id}
+                  key={`${item.type ?? "temp"}-${item.id}`}
                   item={item}
                   processing={actionId === item.id}
                   onAcknowledge={() =>
-                    void acknowledge(item.id)
+                    void acknowledge(item.id, item.type)
                   }
                 />
               ))
@@ -565,6 +577,14 @@ function AlertRow({
             >
               {sensorShortLabel(item.sensorId)}
             </Badge>
+            {item.type === "voltage" && (
+              <Badge
+                variant="secondary"
+                className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800"
+              >
+                Tegangan Listrik
+              </Badge>
+            )}
             {item.status === "Ditangani" && (
               <Badge
                 variant="secondary"
@@ -580,10 +600,17 @@ function AlertRow({
           </p>
 
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Thermometer className="size-3.5" />
-              {item.temperature.toFixed(2)}°C
-            </span>
+            {item.type === "voltage" || (item.voltage !== null && Number.isFinite(item.voltage)) ? (
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Zap className="size-3.5 text-amber-500" />
+                {item.voltage != null ? item.voltage.toFixed(1) : "-"} V AC
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Thermometer className="size-3.5" />
+                {item.temperature != null ? item.temperature.toFixed(2) : "-"}°C
+              </span>
+            )}
             <span className="flex items-center gap-1.5">
               <Radio className="size-3.5" />
               {sensorLabel(item.sensorId)} ({item.sensorId})
@@ -603,8 +630,9 @@ function AlertRow({
 
           {item.resolvedAt && (
             <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-              Suhu kembali normal pada{" "}
-              {dateTime(item.resolvedAt)} WIB
+              {item.type === "voltage"
+                ? `Tegangan kembali normal pada ${dateTime(item.resolvedAt)} WIB`
+                : `Suhu kembali normal pada ${dateTime(item.resolvedAt)} WIB`}
             </p>
           )}
         </div>
