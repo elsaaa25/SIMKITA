@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Filter, History, Search, Thermometer } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Filter, History, Thermometer } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -73,7 +73,6 @@ export function HistoryPage() {
   const [settings, setSettings] = useState<MonitoringSettings>(defaultMonitoringSettings)
   const [statusFilter, setStatusFilter] = useState<"Semua" | Status>("Semua")
   const [sensorFilter, setSensorFilter] = useState<"Semua" | "TEMP-L4" | "TEMP-L5">("Semua")
-  const [search, setSearch] = useState("")
   const [date, setDate] = useState(() => {
     const d = new Date()
     return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(d)
@@ -99,8 +98,7 @@ export function HistoryPage() {
   const fetchHistoryData = useCallback(async () => {
     setLoading(true)
     try {
-      let url = `/api/sensor/history?date=${date}`
-      if (search.trim()) url += `&sensorId=${search.trim()}`
+      const url = `/api/sensor/history?date=${date}`
       const res = await fetch(url)
       const json = await res.json()
       if (json.success) setReadings(json.data)
@@ -109,10 +107,10 @@ export function HistoryPage() {
     } finally {
       setLoading(false)
     }
-  }, [date, search])
+  }, [date])
 
   useEffect(() => { fetchHistoryData() }, [fetchHistoryData])
-  useEffect(() => { setPage(1) }, [date, search, statusFilter, sensorFilter])
+  useEffect(() => { setPage(1) }, [date, statusFilter, sensorFilter])
 
   const getStatus = (temperature: number, sensorId: string): Status => {
     const isL5 = sensorId === "TEMP-L5"
@@ -286,27 +284,17 @@ export function HistoryPage() {
       <Card className="mt-4 shadow-sm">
         <CardHeader className="gap-4">
 
-          {/* Judul + threshold info */}
-          <div className="flex items-center justify-between">
-            <CardTitle>Data Log Sensor</CardTitle>
-            <span className="text-xs font-medium text-muted-foreground">
-              Batas Waspada - L4: {Number(settings.warningTemperature)}°C / L5: {Number(settings.warningTemperatureL5 ?? 27)}°C
-            </span>
-          </div>
+          {/* Baris Atas: Judul, Info Threshold, dan Pemilih Tanggal */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Data Log Sensor</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Batas Waspada - L4: {Number(settings.warningTemperature)}°C / L5: {Number(settings.warningTemperatureL5 ?? 27)}°C
+              </p>
+            </div>
 
-          {/* Baris 1: Pencarian + Tanggal*/}
-          <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-            <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
-              <Search className="size-4 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Cari ID sensor (misal: esp32-lantai4)..."
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none text-foreground"
-              />
-            </label>
-
-            <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20">
+            {/* Pemilih Tanggal */}
+            <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-primary/20 shrink-0">
               <CalendarDays className="size-4 text-muted-foreground" />
               <input
                 type="date"
@@ -317,26 +305,29 @@ export function HistoryPage() {
             </label>
           </div>
 
-          {/* Baris 2: Filter Sensor dan Status*/}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground font-medium shrink-0">Sensor:</span>
-            <div className="flex items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/80 p-1">
-              {(["TEMP-L4", "TEMP-L5"] as const).map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSensor(s)}
-                  className={[
-                    "relative h-8 rounded-xl px-3.5 text-xs font-semibold transition-colors",
-                    sensorFilter === s
-                      ? "bg-white dark:bg-slate-800 text-[#005A9C] dark:text-blue-400 shadow-sm ring-1 ring-slate-200/90 dark:ring-slate-700/80"
-                      : "bg-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100",
-                  ].join(" ")}
-                >
-                  {s === "TEMP-L4" ? "TEMP-L4 (Lantai 4)" : "TEMP-L5 (Lantai 5)"}
-                </button>
-              ))}
+          {/* Baris Bawah: Filter Sensor dan Status */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground font-medium shrink-0">Sensor:</span>
+              <div className="flex items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/80 p-1">
+                {(["Semua", "TEMP-L4", "TEMP-L5"] as const).map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSensor(s)}
+                    className={[
+                      "relative h-8 rounded-xl px-3 text-xs font-semibold transition-colors",
+                      sensorFilter === s
+                        ? "bg-white dark:bg-slate-800 text-[#005A9C] dark:text-blue-400 shadow-sm ring-1 ring-slate-200/90 dark:ring-slate-700/80"
+                        : "bg-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100",
+                    ].join(" ")}
+                  >
+                    {s === "Semua" ? "Semua" : s === "TEMP-L4" ? "Lantai 4" : "Lantai 5"}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div className="flex items-center gap-1.5 min-w-0">
               <Filter className="ml-1 size-4 shrink-0 text-muted-foreground" />
               <AnimatedTabsNoIcon

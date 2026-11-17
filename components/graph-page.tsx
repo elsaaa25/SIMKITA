@@ -1037,7 +1037,7 @@ export function GraphPage() {
           <Download className="size-4" />
 
           <span className="hidden sm:inline">
-            Export CSV
+            Export Data
           </span>
         </Button>
       }
