@@ -267,7 +267,7 @@ export function HistoryPage() {
         <Button onClick={exportExcel} variant="outline" disabled={!filtered.length || exporting}>
           <Download className="mr-2 size-4" />
           <span className="hidden sm:inline">
-            {exporting ? "Membuat Excel..." : "Export Excel"}
+            {exporting ? "Membuat Excel..." : "Export Data"}
           </span>
         </Button>
       }
